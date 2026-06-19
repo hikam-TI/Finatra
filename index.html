@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FINATRA Tracker | Smart Financing Platform for UMKM</title>
+  <meta name="description" content="Platform pembiayaan produktif UMKM oleh FIFGROUP Astra dengan AI Matching, OCR, EWS, dan integrasi AstraPay.">
+  
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            finOrange: '#FF7B00',
+            finMaroon: '#800000',
+            finWarm: '#FFFDF1',
+            finPeach: '#FFCE99',
+            finBright: '#FF9644',
+            finDeep: '#562F00'
+          },
+          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] }
+        }
+      }
+    }
+  </script>
+  
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="bg-finWarm text-finDeep antialiased">
+
+  <div id="app">
+    <!-- ================= AUTHENTICATION VIEW ================= -->
+    <section id="view-auth" class="view-container fixed inset-0 z-50 flex items-center justify-center bg-finWarm/95 backdrop-blur-sm">
+      <div class="w-full max-w-5xl bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col md:flex-row m-4">
+        <div class="md:w-1/2 bg-gradient-to-br from-finBright to-finOrange p-8 flex flex-col justify-between relative overflow-hidden">
+          <div class="absolute inset-0 bg-[url('https://picsum.photos/seed/astra-fif/800/600')] opacity-10 mix-blend-overlay"></div>
+          <div class="relative z-10">
+            <h1 class="text-4xl font-bold text-white tracking-tight mb-2">FINATRA</h1>
+            <p class="text-finWarm/90 text-sm uppercase tracking-widest">ACCOUNTING</p>
+          </div>
+          <div class="relative z-10 mt-8">
+            <p class="text-white text-lg leading-relaxed">Platform pembiayaan produktif berbasis AI untuk UMKM. Transparan, terukur, dan minim risiko gagal bayar.</p>
+            <ul class="text-white/90 text-sm mt-4 space-y-1">
+              <li><i class="fas fa-check-circle mr-2"></i>AI Matching & OCR Verification</li>
+              <li><i class="fas fa-check-circle mr-2"></i>Early Warning System 7-Tahap</li>
+              <li><i class="fas fa-check-circle mr-2"></i>Auto-Debit AstraPay</li>
+            </ul>
+          </div>
+          <img src="https://picsum.photos/seed/astra-logo/300/150" alt="FIFGROUP" class="relative z-10 w-48 opacity-90 mt-auto">
+        </div>
+        
+        <div class="md:w-1/2 p-8 md:p-12 bg-white">
+          <div id="auth-form-container" class="space-y-6">
+            <div class="text-center md:text-left mb-6">
+              <h2 class="text-2xl font-semibold text-finDeep" id="auth-title">Selamat Datang Kembali</h2>
+              <p class="text-gray-500 text-sm mt-1">Masuk untuk mengakses dashboard pembiayaan Anda.</p>
+            </div>
+            
+            <form id="auth-form" class="space-y-4">
+              <div id="register-name-field" class="hidden">
+                <label class="block text-sm font-medium text-gray-600 mb-1">Nama Lengkap</label>
+                <input type="text" id="name" placeholder="Nama sesuai KTP" class="input-skeu w-full px-4 py-3 rounded-lg border">
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-600 mb-1">Nomor Handphone</label>
+                <input type="tel" id="phone" placeholder="08xxxxxxxxxx" maxlength="13" class="input-skeu w-full px-4 py-3 rounded-lg border" required>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-600 mb-1">PIN Akses (6 digit)</label>
+                <input type="password" id="pin" placeholder="••••••" maxlength="6" class="input-skeu w-full px-4 py-3 rounded-lg border" required>
+              </div>
+              
+              <button type="submit" id="auth-submit" class="btn-primary w-full py-3 rounded-lg font-semibold shadow-lg">
+                <span class="btn-text">Masuk ke Dashboard</span>
+                <i class="fas fa-arrow-right ml-2"></i>
+              </button>
+            </form>
+            
+            <div class="text-center mt-4">
+              <button type="button" id="auth-toggle" class="text-sm text-finOrange hover:text-finDeep font-medium">
+                Belum punya akun? Daftar Sekarang
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= MAIN APP SHELL ================= -->
+    <div id="app-shell" class="hidden flex flex-col md:flex-row min-h-screen">
+      
+      <!-- Sidebar -->
+      <aside id="sidebar" class="fixed inset-y-0 left-0 z-40 w-64 bg-white border-r border-finPeach/30 transform -translate-x-full md:translate-x-0 transition-transform duration-300 flex flex-col shadow-xl">
+        <div class="p-6 border-b border-gray-100">
+          <div class="flex items-center gap-2">
+            <div class="w-8 h-8 bg-finOrange rounded-lg flex items-center justify-center text-white font-bold">F</div>
+            <span class="text-xl font-bold text-finDeep">FINATRA</span>
+          </div>
+          <p class="text-xs text-gray-400 mt-1 tracking-wider">SMART FINANCING PLATFORM</p>
+        </div>
+        
+        <nav class="flex-1 p-4 space-y-2">
+          <button data-route="dashboard" class="nav-item active flex items-center gap-3 w-full px-4 py-3 rounded-xl text-left text-finOrange bg-finPeach/10 font-medium">
+            <i class="fas fa-chart-pie w-5"></i> <span>Dashboard Tracker</span>
+          </button>
+          <button data-route="matching" class="nav-item flex items-center gap-3 w-full px-4 py-3 rounded-xl text-left text-gray-600 font-medium">
+            <i class="fas fa-brain w-5"></i> <span>AI Matching</span>
+          </button>
+          <button data-route="ews" class="nav-item flex items-center gap-3 w-full px-4 py-3 rounded-xl text-left text-gray-600 font-medium">
+            <i class="fas fa-bell w-5"></i> <span>AI Warning System</span>
+          </button>
+          <button data-route="chatbot" class="nav-item flex items-center gap-3 w-full px-4 py-3 rounded-xl text-left text-gray-600 font-medium">
+            <i class="fas fa-headset w-5"></i> <span>AI Chatbot 24/7</span>
+          </button>
+          <button data-route="testimonial" class="nav-item flex items-center gap-3 w-full px-4 py-3 rounded-xl text-left text-gray-600 font-medium">
+            <i class="fas fa-star w-5"></i> <span>Testimoni Nasabah</span>
+          </button>
+          <div class="pt-4 border-t border-gray-100 mt-4">
+            <button id="logout-btn" class="flex items-center gap-3 w-full px-4 py-3 rounded-xl text-left text-red-500 font-medium hover:bg-red-50">
+              <i class="fas fa-sign-out-alt w-5"></i> <span>Keluar</span>
+            </button>
+          </div>
+        </nav>
+        
+        <div class="p-4 border-t border-gray-100">
+          <div class="bg-gradient-to-r from-finOrange/10 to-finPeach/20 p-3 rounded-lg text-xs text-finDeep/80">
+            <p class="font-semibold mb-1">Versi Aplikasi</p>
+            <p>v2.0.0 • Production Ready</p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Main Content -->
+      <main class="flex-1 flex flex-col min-h-screen md:ml-64">
+        <!-- Top Bar -->
+        <header id="top-bar" class="sticky top-0 z-30 bg-finWarm/80 backdrop-blur-md border-b border-gray-100 px-6 py-3 flex items-center justify-between">
+          <div class="flex items-center gap-4">
+            <button id="sidebar-toggle" class="md:hidden p-2 rounded-lg hover:bg-gray-100 text-finDeep">
+              <i class="fas fa-bars text-lg"></i>
+            </button>
+            <div>
+              <h2 id="page-title" class="text-lg font-semibold text-finDeep">Dashboard Tracker</h2>
+              <p id="greeting-text" class="text-xs text-gray-500">Memuat...</p>
+            </div>
+          </div>
+          
+          <div class="flex items-center gap-3">
+            <div class="relative group">
+              <button class="p-2 rounded-full hover:bg-white/50 relative">
+                <i class="fas fa-bell text-gray-500"></i>
+                <span class="absolute top-1 right-1 w-2 h-2 bg-finOrange rounded-full animate-pulse"></span>
+              </button>
+              <div class="absolute right-0 top-full mt-2 w-72 bg-white rounded-xl shadow-xl border border-gray-100 p-3 hidden group-hover:block z-50">
+                <p class="text-xs font-bold text-gray-500 mb-2 uppercase">Notifikasi EWS</p>
+                <div class="space-y-2 max-h-60 overflow-y-auto" id="notif-dropdown">
+                  <!-- Populated via JS -->
+                </div>
+              </div>
+            </div>
+            <div class="hidden sm:flex items-center gap-2 bg-white px-3 py-1.5 rounded-full shadow-sm border border-gray-100">
+              <img src="https://picsum.photos/seed/user/32/32" alt="User" class="w-6 h-6 rounded-full">
+              <span class="text-xs font-medium text-finDeep" id="user-display">Guest</span>
+            </div>
+          </div>
+        </header>
+
+        <!-- Content Area -->
+        <div id="content-area" class="flex-1 overflow-y-auto p-6 space-y-6">
+          
+          <!-- ================= DASHBOARD VIEW ================= -->
+          <section id="view-dashboard" class="view-section space-y-6">
+            
+            <!-- Profil Card -->
+            <div class="card-skeu p-6 rounded-2xl flex flex-col md:flex-row gap-6 items-start">
+              <div class="flex items-center gap-4 flex-1">
+                <img src="https://picsum.photos/seed/profile/96/96" alt="Profile" class="w-20 h-20 rounded-full border-4 border-finPeach shadow-md">
+                <div>
+                  <h3 class="text-xl font-bold text-finDeep" id="profile-name">Mitra UMKM</h3>
+                  <p class="text-xs text-gray-500">ID: FIN-2026-88421 • Terverifikasi <i class="fas fa-check-circle text-green-500"></i></p>
+                  <p class="text-xs text-gray-400 mt-1">Bergabung sejak 12 Jan 2024</p>
+                </div>
+              </div>
+              <div class="grid grid-cols-2 md:grid-cols-4 gap-3 w-full md:w-auto">
+                <div class="text-center p-3 bg-finPeach/20 rounded-lg">
+                  <p class="text-[10px] text-gray-500 uppercase">Limit</p>
+                  <p class="text-sm font-bold text-finDeep">50jt</p>
+                </div>
+                <div class="text-center p-3 bg-finPeach/20 rounded-lg">
+                  <p class="text-[10px] text-gray-500 uppercase">Skor</p>
+                  <p class="text-sm font-bold text-green-600">A+</p>
+                </div>
+                <div class="text-center p-3 bg-finPeach/20 rounded-lg">
+                  <p class="text-[10px] text-gray-500 uppercase">Tenor</p>
+                  <p class="text-sm font-bold text-finDeep">12 bln</p>
+                </div>
+                <div class="text-center p-3 bg-finPeach/20 rounded-lg">
+                  <p class="text-[10px] text-gray-500 uppercase">Status</p>
+                  <p class="text-sm font-bold text-finOrange">Aktif</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Progres Pengajuan -->
+            <div class="card-skeu p-6 rounded-2xl reveal">
+              <div class="flex justify-between items-center mb-4">
+                <h4 class="font-semibold text-finDeep flex items-center gap-2"><i class="fas fa-file-signature text-finOrange"></i> Progres Pengajuan Pembiayaan</h4>
+                <span class="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">Disetujui</span>
+              </div>
+              <div class="relative">
+                <div class="flex justify-between mb-2 text-xs text-gray-500">
+                  <span>Ajukan</span><span>Verifikasi</span><span>OCR</span><span>Approval</span><span>Pencairan</span>
+                </div>
+                <div class="w-full bg-gray-200 h-2 rounded-full overflow-hidden">
+                  <div class="bg-gradient-to-r from-finBright to-finOrange h-2 rounded-full transition-all" style="width: 100%"></div>
+                </div>
+                <div class="flex justify-between mt-2">
+                  <div class="flex flex-col items-center"><div class="w-6 h-6 rounded-full bg-finOrange text-white flex items-center justify-center text-xs"><i class="fas fa-check"></i></div></div>
+                  <div class="flex flex-col items-center"><div class="w-6 h-6 rounded-full bg-finOrange text-white flex items-center justify-center text-xs"><i class="fas fa-check"></i></div></div>
+                  <div class="flex flex-col items-center"><div class="w-6 h-6 rounded-full bg-finOrange text-white flex items-center justify-center text-xs"><i class="fas fa-check"></i></div></div>
+                  <div class="flex flex-col items-center"><div class="w-6 h-6 rounded-full bg-finOrange text-white flex items-center justify-center text-xs"><i class="fas fa-check"></i></div></div>
+                  <div class="flex flex-col items-center"><div class="w-6 h-6 rounded-full bg-finOrange text-white flex items-center justify-center text-xs"><i class="fas fa-check"></i></div></div>
+                </div>
+              </div>
+              <p class="text-xs text-gray-500 mt-4">Pencairan dana sebesar <span class="font-semibold text-finDeep">Rp 25.000.000</span> telah ditransfer ke rekening BCA ****8842 pada 15 Juni 2026.</p>
+            </div>
+
+            <!-- Main Financing Panel -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div class="card-skeu p-6 rounded-2xl reveal">
+                <p class="text-xs text-gray-500 uppercase tracking-wider">Sisa Limit Tersedia</p>
+                <h3 class="text-2xl font-bold text-finDeep mt-2">Rp 45.000.000</h3>
+                <div class="w-full bg-gray-200 h-2 rounded-full mt-4 overflow-hidden">
+                  <div class="bg-finOrange h-2 rounded-full" style="width: 65%"></div>
+                </div>
+                <p class="text-xs text-gray-400 mt-2">65% dari total limit Rp 50.000.000</p>
+              </div>
+              <div class="card-skeu p-6 rounded-2xl reveal">
+                <p class="text-xs text-gray-500 uppercase tracking-wider">Total Pinjaman Aktif</p>
+                <h3 class="text-2xl font-bold text-finDeep mt-2">Rp 25.000.000</h3>
+                <p class="text-xs text-green-600 mt-1 flex items-center gap-1"><i class="fas fa-check-circle"></i> Cicilan lancar</p>
+              </div>
+              <div class="card-skeu p-6 rounded-2xl reveal">
+                <p class="text-xs text-gray-500 uppercase tracking-wider">Total Terbayar (YTD)</p>
+                <h3 class="text-2xl font-bold text-finDeep mt-2">Rp 8.200.000</h3>
+                <p class="text-xs text-gray-400 mt-1">Dari 12 angsuran</p>
+              </div>
+            </div>
+
+            <!-- Progres Pembayaran -->
+            <div class="card-skeu p-6 rounded-2xl reveal">
+              <h4 class="font-semibold text-finDeep mb-4 flex items-center gap-2"><i class="fas fa-tasks text-finOrange"></i> Progres Pembayaran Angsuran</h4>
+              <div class="grid grid-cols-12 gap-1" id="payment-progress-grid">
+                <!-- Populated via JS -->
+              </div>
+              <div class="flex justify-between mt-3 text-xs text-gray-500">
+                <span>Angsuran ke-1</span>
+                <span>Angsuran ke-12</span>
+              </div>
+            </div>
+
+            <!-- Kalender Jatuh Tempo + Denda -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <!-- Kalender -->
+              <div class="card-skeu p-6 rounded-2xl reveal">
+                <h4 class="font-semibold text-finDeep mb-4 flex items-center gap-2"><i class="fas fa-calendar-alt text-finOrange"></i> Kalender Jatuh Tempo</h4>
+                <div class="grid grid-cols-7 gap-1 text-center text-xs">
+                  <div class="font-bold text-gray-400 py-1">Min</div>
+                  <div class="font-bold text-gray-400 py-1">Sen</div>
+                  <div class="font-bold text-gray-400 py-1">Sel</div>
+                  <div class="font-bold text-gray-400 py-1">Rab</div>
+                  <div class="font-bold text-gray-400 py-1">Kam</div>
+                  <div class="font-bold text-gray-400 py-1">Jum</div>
+                  <div class="font-bold text-gray-400 py-1">Sab</div>
+                </div>
+                <div class="grid grid-cols-7 gap-1 text-center text-xs mt-1" id="calendar-grid">
+                  <!-- Populated via JS -->
+                </div>
+                <div class="flex gap-3 mt-4 text-[10px] text-gray-500">
+                  <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-finOrange"></span>Jatuh Tempo</span>
+                  <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-green-500"></span>Lunas</span>
+                  <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-red-500"></span>Terlambat</span>
+                </div>
+              </div>
+
+              <!-- Denda -->
+              <div class="card-skeu p-6 rounded-2xl reveal">
+                <h4 class="font-semibold text-finDeep mb-4 flex items-center gap-2"><i class="fas fa-exclamation-triangle text-finOrange"></i> Status Denda</h4>
+                <div class="bg-green-50 border border-green-200 rounded-xl p-4 text-center">
+                  <i class="fas fa-check-circle text-4xl text-green-500 mb-2"></i>
+                  <p class="font-semibold text-green-700">Bebas Denda</p>
+                  <p class="text-xs text-green-600 mt-1">Selalu bayar tepat waktu. Pertahankan!</p>
+                </div>
+                <div class="mt-4 space-y-2 text-xs">
+                  <div class="flex justify-between p-2 bg-gray-50 rounded-lg">
+                    <span class="text-gray-500">Denda H+1</span>
+                    <span class="font-semibold text-finDeep">Rp 50.000</span>
+                  </div>
+                  <div class="flex justify-between p-2 bg-gray-50 rounded-lg">
+                    <span class="text-gray-500">Denda H+3</span>
+                    <span class="font-semibold text-finDeep">Rp 150.000</span>
+                  </div>
+                  <div class="flex justify-between p-2 bg-gray-50 rounded-lg">
+                    <span class="text-gray-500">Denda Terkini</span>
+                    <span class="font-semibold text-red-500">Rp 0</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- OCR Upload Section -->
+            <div class="card-skeu p-6 rounded-2xl reveal">
+              <div class="flex justify-between items-center mb-4">
+                <h4 class="font-semibold text-finDeep flex items-center gap-2"><i class="fas fa-camera text-finOrange"></i> Verifikasi Dokumen (OCR)</h4>
+                <span class="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">Terverifikasi</span>
+              </div>
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="ocr-upload-area border-2 border-dashed border-finPeach rounded-xl p-4 text-center cursor-pointer hover:bg-finPeach/10 transition-colors" data-type="ktp">
+                  <i class="fas fa-id-card text-3xl text-finOrange mb-2"></i>
+                  <p class="text-sm font-semibold">KTP</p>
+                  <p class="text-[10px] text-gray-500 mt-1">Upload foto KTP</p>
+                  <input type="file" class="ocr-input hidden" accept="image/*">
+                </div>
+                <div class="ocr-upload-area border-2 border-dashed border-finPeach rounded-xl p-4 text-center cursor-pointer hover:bg-finPeach/10 transition-colors" data-type="kk">
+                  <i class="fas fa-users text-3xl text-finOrange mb-2"></i>
+                  <p class="text-sm font-semibold">Kartu Keluarga</p>
+                  <p class="text-[10px] text-gray-500 mt-1">Upload foto KK</p>
+                  <input type="file" class="ocr-input hidden" accept="image/*">
+                </div>
+                <div class="ocr-upload-area border-2 border-dashed border-finPeach rounded-xl p-4 text-center cursor-pointer hover:bg-finPeach/10 transition-colors" data-type="agunan">
+                  <i class="fas fa-car text-3xl text-finOrange mb-2"></i>
+                  <p class="text-sm font-semibold">BPKB / Sertifikat</p>
+                  <p class="text-[10px] text-gray-500 mt-1">Upload dokumen agunan</p>
+                  <input type="file" class="ocr-input hidden" accept="image/*">
+                </div>
+              </div>
+              <div id="ocr-result" class="mt-4 hidden p-3 bg-green-50 border border-green-200 rounded-lg text-xs text-green-700">
+                <i class="fas fa-check-circle mr-1"></i> <span id="ocr-result-text">Dokumen berhasil diverifikasi via OCR.</span>
+              </div>
+            </div>
+
+            <!-- AstraPay Auto-Debit -->
+            <div class="card-skeu p-6 rounded-2xl reveal">
+              <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-4">
+                <div>
+                  <h4 class="font-semibold text-finDeep flex items-center gap-2"><i class="fas fa-wallet text-finOrange"></i> Integrasi AstraPay Auto-Debit</h4>
+                  <p class="text-xs text-gray-500 mt-1">Potong cicilan otomatis dari transaksi AstraPay Anda.</p>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" id="autopay-toggle" class="sr-only peer">
+                  <div class="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-finOrange shadow-inner"></div>
+                </label>
+              </div>
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <label class="flex items-center gap-2 p-3 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-finOrange transition-colors">
+                  <input type="radio" name="frequency" value="daily" class="accent-finOrange">
+                  <div>
+                    <p class="text-sm font-semibold">Harian</p>
+                    <p class="text-[10px] text-gray-500">Potong tiap hari</p>
+                  </div>
+                </label>
+                <label class="flex items-center gap-2 p-3 border-2 border-finOrange bg-finPeach/10 rounded-lg cursor-pointer">
+                  <input type="radio" name="frequency" value="weekly" checked class="accent-finOrange">
+                  <div>
+                    <p class="text-sm font-semibold">Mingguan</p>
+                    <p class="text-[10px] text-gray-500">Potong tiap minggu</p>
+                  </div>
+                </label>
+                <label class="flex items-center gap-2 p-3 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-finOrange transition-colors">
+                  <input type="radio" name="frequency" value="monthly" class="accent-finOrange">
+                  <div>
+                    <p class="text-sm font-semibold">Bulanan</p>
+                    <p class="text-[10px] text-gray-500">Potong tiap bulan</p>
+                  </div>
+                </label>
+              </div>
+              <p class="text-xs text-gray-500 mt-3 italic"><i class="fas fa-info-circle mr-1"></i>Frekuensi dipilih berdasarkan pola arus kas UMKM Anda.</p>
+            </div>
+
+            <!-- Transaction Table -->
+            <div class="card-skeu rounded-xl overflow-hidden">
+              <div class="p-4 border-b border-gray-100 flex flex-col md:flex-row gap-3 justify-between items-center">
+                <h4 class="font-semibold text-finDeep">Riwayat Transaksi</h4>
+                <div class="flex gap-2 w-full md:w-auto">
+                  <input type="date" id="filter-date" class="input-skeu px-3 py-2 rounded-lg border text-sm">
+                  <input type="text" id="search-tx" placeholder="Cari kwitansi..." class="input-skeu px-3 py-2 rounded-lg border text-sm w-full md:w-64">
+                </div>
+              </div>
+              <div class="overflow-x-auto">
+                <table class="w-full text-sm text-left">
+                  <thead class="bg-gray-50 text-gray-600 font-medium">
+                    <tr>
+                      <th class="px-4 py-3">No. Kwitansi</th>
+                      <th class="px-4 py-3">Tanggal</th>
+                      <th class="px-4 py-3">Nominal</th>
+                      <th class="px-4 py-3">Metode Bayar</th>
+                      <th class="px-4 py-3">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tx-table-body" class="divide-y divide-gray-100"></tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+
+          <!-- ================= AI MATCHING VIEW ================= -->
+          <section id="view-matching" class="view-section hidden space-y-6">
+            <div class="text-center mb-4 reveal">
+              <h2 class="text-2xl font-bold text-finDeep">AI Matching Based on Preference</h2>
+              <p class="text-gray-500 text-sm">Sistem merekomendasikan jumlah pinjaman ideal & tenor berdasarkan profil risiko Anda.</p>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <div class="card-skeu p-6 rounded-2xl reveal">
+                <h3 class="font-semibold mb-4 flex items-center gap-2"><i class="fas fa-file-invoice text-finOrange"></i> Data Diri & Agunan</h3>
+                <form id="ai-form" class="space-y-4">
+                  <!-- Upload Data Diri -->
+                  <div class="p-4 bg-finPeach/10 rounded-lg border border-finPeach/30">
+                    <label class="block text-xs font-medium text-gray-600 mb-2">Upload Data Diri (KTP)</label>
+                    <div class="ocr-upload-area border-2 border-dashed border-finPeach rounded-lg p-3 text-center cursor-pointer hover:bg-white transition-colors" data-type="ktp-match">
+                      <i class="fas fa-cloud-upload-alt text-2xl text-finOrange mb-1"></i>
+                      <p class="text-xs">Klik untuk upload atau drag & drop</p>
+                      <p class="text-[10px] text-gray-400 mt-1">JPG, PNG max 5MB</p>
+                      <input type="file" class="ocr-input hidden" accept="image/*">
+                    </div>
+                    <p id="upload-status-ktp-match" class="text-[10px] text-gray-500 mt-2"><i class="fas fa-info-circle"></i> OCR akan otomatis mengekstrak data.</p>
+                  </div>
+
+                  <!-- Upload Agunan -->
+                  <div class="p-4 bg-finPeach/10 rounded-lg border border-finPeach/30">
+                    <label class="block text-xs font-medium text-gray-600 mb-2">Upload Dokumen Agunan</label>
+                    <div class="ocr-upload-area border-2 border-dashed border-finPeach rounded-lg p-3 text-center cursor-pointer hover:bg-white transition-colors" data-type="agunan-match">
+                      <i class="fas fa-file-upload text-2xl text-finOrange mb-1"></i>
+                      <p class="text-xs">Upload BPKB / Sertifikat</p>
+                      <input type="file" class="ocr-input hidden" accept="image/*">
+                    </div>
+                  </div>
+
+                  <div class="grid grid-cols-2 gap-3">
+                    <div>
+                      <label class="block text-xs font-medium text-gray-600 mb-1">Jenis Jaminan</label>
+                      <select id="collateral" class="input-skeu w-full px-3 py-2 rounded-lg border bg-white">
+                        <option value="bpb_motor">BPKB Motor</option>
+                        <option value="bpb_mobil">BPKB Mobil</option>
+                        <option value="sertifikat">Sertifikat Properti</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label class="block text-xs font-medium text-gray-600 mb-1">Tahun Aset</label>
+                      <input type="number" id="asset-year" placeholder="2020" min="2000" max="2026" class="input-skeu w-full px-3 py-2 rounded-lg border">
+                    </div>
+                  </div>
+
+                  <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Brand/Merk Aset</label>
+                    <input type="text" id="asset-brand" placeholder="Toyota Avanza / Honda Vario" class="input-skeu w-full px-3 py-2 rounded-lg border">
+                  </div>
+
+                  <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Lokasi Peminjam</label>
+                    <select id="location" class="input-skeu w-full px-3 py-2 rounded-lg border bg-white">
+                      <option value="jakarta">DKI Jakarta</option>
+                      <option value="bandung">Jawa Barat - Bandung</option>
+                      <option value="surabaya">Jawa Timur - Surabaya</option>
+                      <option value="semarang">Jawa Tengah - Semarang</option>
+                      <option value="yogyakarta">DIY - Yogyakarta</option>
+                      <option value="medan">Sumatera Utara - Medan</option>
+                      <option value="makassar">Sulawesi Selatan - Makassar</option>
+                      <option value="denpasar">Bali - Denpasar</option>
+                      <option value="lainnya">Wilayah Lainnya</option>
+                    </select>
+                  </div>
+
+                  <div class="grid grid-cols-2 gap-3">
+                    <div>
+                      <label class="block text-xs font-medium text-gray-600 mb-1">Pendapatan Kotor/Bulan</label>
+                      <input type="number" id="revenue" placeholder="15000000" class="input-skeu w-full px-3 py-2 rounded-lg border">
+                    </div>
+                    <div>
+                      <label class="block text-xs font-medium text-gray-600 mb-1">Kemampuan Bayar/Bulan</label>
+                      <input type="number" id="capability" placeholder="3000000" class="input-skeu w-full px-3 py-2 rounded-lg border">
+                    </div>
+                  </div>
+
+                  <button type="submit" class="btn-primary w-full py-3 rounded-lg font-medium mt-2 shadow-md">
+                    Analisis Kelayakan <i class="fas fa-wand-magic-sparkles ml-2"></i>
+                  </button>
+                </form>
+              </div>
+
+              <div id="ai-results" class="space-y-4">
+                <div class="card-skeu p-8 rounded-2xl text-center reveal">
+                  <i class="fas fa-robot text-5xl text-finPeach mb-3"></i>
+                  <h3 class="font-semibold text-finDeep">AI Recommendation Engine</h3>
+                  <p class="text-sm text-gray-500 mt-2">Isi form di sebelah kiri untuk mendapatkan rekomendasi jumlah pinjaman ideal & tenor terbaik.</p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ================= AI WARNING SYSTEM VIEW ================= -->
+          <section id="view-ews" class="view-section hidden space-y-6">
+            <div class="text-center mb-4 reveal">
+              <h2 class="text-2xl font-bold text-finDeep">AI Warning System (EWS)</h2>
+              <p class="text-gray-500 text-sm">Sistem pengingat 7-tahap untuk memastikan Anda tidak melewatkan jatuh tempo.</p>
+            </div>
+
+            <div class="card-skeu p-6 rounded-2xl reveal">
+              <div class="flex justify-between items-center mb-4">
+                <h4 class="font-semibold text-finDeep">Timeline Jatuh Tempo</h4>
+                <span class="text-xs bg-finOrange/10 text-finOrange px-3 py-1 rounded-full font-semibold">Jatuh Tempo: 25 Juni 2026</span>
+              </div>
+              
+              <div class="relative">
+                <!-- Vertical Timeline -->
+                <div class="absolute left-4 top-0 bottom-0 w-0.5 bg-gray-200"></div>
+                
+                <div id="ews-timeline" class="space-y-4">
+                  <!-- Populated via JS -->
+                </div>
+              </div>
+            </div>
+
+            <div class="card-skeu p-6 rounded-2xl reveal">
+              <h4 class="font-semibold text-finDeep mb-3">Pengaturan Notifikasi</h4>
+              <div class="space-y-3">
+                <label class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <span class="text-sm">Notifikasi WhatsApp</span>
+                  <input type="checkbox" checked class="accent-finOrange w-5 h-5">
+                </label>
+                <label class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <span class="text-sm">Notifikasi SMS</span>
+                  <input type="checkbox" checked class="accent-finOrange w-5 h-5">
+                </label>
+                <label class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <span class="text-sm">Notifikasi Email</span>
+                  <input type="checkbox" class="accent-finOrange w-5 h-5">
+                </label>
+                <label class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <span class="text-sm">Push Notification App</span>
+                  <input type="checkbox" checked class="accent-finOrange w-5 h-5">
+                </label>
+              </div>
+            </div>
+          </section>
+
+          <!-- ================= AI CHATBOT VIEW ================= -->
+          <section id="view-chatbot" class="view-section hidden h-[calc(100vh-120px)]">
+            <div class="grid grid-cols-1 md:grid-cols-12 gap-4 h-full">
+              <div class="md:col-span-4 card-skeu p-4 rounded-xl overflow-y-auto">
+                <h3 class="font-semibold mb-3 text-finDeep">FAQ Cepat</h3>
+                <div class="space-y-2" id="faq-list">
+                  <button class="faq-item w-full text-left p-3 rounded-lg bg-gray-50 hover:bg-white border border-gray-100 transition-colors">
+                    <div class="flex justify-between items-center">
+                      <span class="text-sm font-medium">Cara top-up AstraPay?</span>
+                      <i class="fas fa-chevron-down text-xs transition-transform"></i>
+                    </div>
+                    <div class="hidden mt-2 text-xs text-gray-500 leading-relaxed">Top-up via transfer bank, Alfamart/Indomaret, atau auto-debit dari rekening terdaftar di aplikasi AstraPay.</div>
+                  </button>
+                  <button class="faq-item w-full text-left p-3 rounded-lg bg-gray-50 hover:bg-white border border-gray-100 transition-colors">
+                    <div class="flex justify-between items-center">
+                      <span class="text-sm font-medium">Denda keterlambatan?</span>
+                      <i class="fas fa-chevron-down text-xs transition-transform"></i>
+                    </div>
+                    <div class="hidden mt-2 text-xs text-gray-500 leading-relaxed">H+1: Rp 50.000, H+3: Rp 150.000. Aktifkan auto-debit untuk menghindari denda.</div>
+                  </button>
+                  <button class="faq-item w-full text-left p-3 rounded-lg bg-gray-50 hover:bg-white border border-gray-100 transition-colors">
+                    <div class="flex justify-between items-center">
+                      <span class="text-sm font-medium">Apa itu OCR FINATRA?</span>
+                      <i class="fas fa-chevron-down text-xs transition-transform"></i>
+                    </div>
+                    <div class="hidden mt-2 text-xs text-gray-500 leading-relaxed">OCR (Optical Character Recognition) adalah teknologi verifikasi dokumen otomatis untuk mempercepat proses pengajuan.</div>
+                  </button>
+                  <button class="faq-item w-full text-left p-3 rounded-lg bg-gray-50 hover:bg-white border border-gray-100 transition-colors">
+                    <div class="flex justify-between items-center">
+                      <span class="text-sm font-medium">Cara kerja AI Matching?</span>
+                      <i class="fas fa-chevron-down text-xs transition-transform"></i>
+                    </div>
+                    <div class="hidden mt-2 text-xs text-gray-500 leading-relaxed">AI menganalisis pendapatan, kemampuan bayar, lokasi, dan jenis agunan untuk merekomendasikan limit & tenor ideal.</div>
+                  </button>
+                </div>
+              </div>
+
+              <div class="md:col-span-8 card-skeu flex flex-col rounded-xl overflow-hidden">
+                <div class="p-4 bg-white border-b border-gray-100 flex items-center gap-3">
+                  <div class="w-8 h-8 rounded-full bg-finOrange/10 flex items-center justify-center text-finOrange"><i class="fas fa-robot"></i></div>
+                  <div class="flex-1">
+                    <h4 class="font-semibold text-sm">FINATRA AI Assistant</h4>
+                    <p class="text-[10px] text-green-500 flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span> Online • Database: 12.480 pertanyaan</p>
+                  </div>
+                </div>
+                <div id="chat-history" class="flex-1 p-4 overflow-y-auto space-y-3 bg-gray-50/50">
+                  <div class="flex gap-3 items-start">
+                    <div class="w-6 h-6 rounded-full bg-finOrange/20 flex-shrink-0 flex items-center justify-center text-[10px] text-finOrange"><i class="fas fa-robot"></i></div>
+                    <div class="bg-white p-3 rounded-tr-xl rounded-br-xl rounded-bl-xl shadow-sm text-xs text-gray-700 max-w-[80%]">Halo! Saya asisten AI FINATRA. Saya belajar dari database pertanyaan nasabah untuk memberikan jawaban akurat. Ada yang bisa saya bantu?</div>
+                  </div>
+                </div>
+                <div class="p-3 bg-white border-t border-gray-100">
+                  <form id="chat-form" class="flex gap-2">
+                    <input type="text" id="chat-input" placeholder="Ketik pertanyaan Anda..." class="input-skeu flex-1 px-4 py-2 rounded-full border" required>
+                    <button type="submit" class="w-10 h-10 rounded-full bg-finOrange text-white flex items-center justify-center hover:bg-finDeep shadow-md"><i class="fas fa-paper-plane"></i></button>
+                  </form>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ================= TESTIMONIAL VIEW ================= -->
+          <section id="view-testimonial" class="view-section hidden space-y-6">
+            <div class="text-center mb-4 reveal">
+              <h2 class="text-2xl font-bold text-finDeep">Testimoni Nasabah FINATRA</h2>
+              <p class="text-gray-500 text-sm">Ribuan UMKM telah berkembang bersama FINATRA. Ini cerita mereka.</p>
+              <div class="flex justify-center gap-6 mt-4">
+                <div class="text-center">
+                  <p class="text-3xl font-bold text-finOrange">12.480+</p>
+                  <p class="text-xs text-gray-500">Nasabah Aktif</p>
+                </div>
+                <div class="text-center">
+                  <p class="text-3xl font-bold text-finOrange">4.9/5</p>
+                  <p class="text-xs text-gray-500">Rating Kepuasan</p>
+                </div>
+                <div class="text-center">
+                  <p class="text-3xl font-bold text-finOrange">98%</p>
+                  <p class="text-xs text-gray-500">Rekomendasi</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="testimonial-grid">
+              <!-- Populated via JS -->
+            </div>
+
+            <div class="card-skeu p-6 rounded-2xl text-center reveal">
+              <h4 class="font-semibold text-finDeep mb-2">Ceritakan Pengalaman Anda</h4>
+              <p class="text-xs text-gray-500 mb-4">Bantu nasabah lain dengan membagikan pengalaman Anda.</p>
+              <form id="testimonial-form" class="max-w-md mx-auto space-y-3">
+                <div class="flex justify-center gap-1">
+                  <i class="fas fa-star text-finOrange cursor-pointer" data-rate="1"></i>
+                  <i class="fas fa-star text-finOrange cursor-pointer" data-rate="2"></i>
+                  <i class="fas fa-star text-finOrange cursor-pointer" data-rate="3"></i>
+                  <i class="fas fa-star text-finOrange cursor-pointer" data-rate="4"></i>
+                  <i class="fas fa-star text-finOrange cursor-pointer" data-rate="5"></i>
+                </div>
+                <textarea placeholder="Tulis testimoni Anda..." rows="3" class="input-skeu w-full px-4 py-2 rounded-lg border text-sm" required></textarea>
+                <button type="submit" class="btn-primary px-6 py-2 rounded-lg text-sm font-medium shadow-md">Kirim Testimoni</button>
+              </form>
+            </div>
+          </section>
+
+          <!-- Footer -->
+          <div class="mt-10 border-t border-gray-200 pt-6 pb-10 text-center reveal">
+            <footer class="text-xs text-gray-400 flex flex-col md:flex-row items-center justify-center gap-4">
+              <p>&copy; 2026 FIFGROUP Astra. All rights reserved.</p>
+              <div class="flex gap-3">
+                <a href="#" class="text-gray-400 hover:text-finOrange"><i class="fab fa-instagram"></i></a>
+                <a href="#" class="text-gray-400 hover:text-finOrange"><i class="fab fa-linkedin"></i></a>
+                <a href="#" class="text-gray-400 hover:text-finOrange"><i class="fab fa-youtube"></i></a>
+                <a href="#" class="text-gray-400 hover:text-finOrange"><i class="fab fa-tiktok"></i></a>
+              </div>
+            </footer>
+            <button id="back-to-top" class="fixed bottom-6 right-6 w-10 h-10 bg-finMaroon text-white rounded-full shadow-xl hidden items-center justify-center hover:bg-finDeep z-40"><i class="fas fa-arrow-up"></i></button>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <div id="toast-container" class="fixed bottom-4 right-4 z-[60] flex flex-col gap-2 pointer-events-none"></div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
