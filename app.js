@@ -63,8 +63,11 @@ class DatabaseService {
       name: name, 
       phone, 
       pin, 
-      avatarUrl,  // ✅ Simpan avatar URL ke database
-      createdAt: now  // ✅ Simpan tanggal daftar
+      avatarUrl,
+      createdAt: now,
+      // ✅ Data baru - mulai dari nol
+      applications: [],  // Belum ada pengajuan
+      loans: []          // Belum ada pinjaman
     };
     this._setStore('users', users);
     return { success: true };
@@ -382,13 +385,268 @@ const App = {
   },
 
   async loadDashboard() {
-    const txs = await DB.getTransactions();
-    this.renderTransactions(null, null, txs);
-    this.renderPaymentProgress();
-    this.renderCalendar();
-    this.renderEWSTimeline();
-    this.renderNotifications();
-  },
+  const txs = await DB.getTransactions();
+  this.renderTransactions(null, null, txs);
+  
+  // ✅ Cek apakah user punya pengajuan aktif
+  const userApps = this.state.user.applications || [];
+  const hasActiveApplication = userApps.length > 0;
+  
+  if (hasActiveApplication) {
+    this.renderApplicationProgress(userApps[0]);
+  } else {
+    this.renderNoApplication();
+  }
+  
+  // ✅ Render payment progress (mulai dari awal untuk user baru)
+  const userLoans = this.state.user.loans || [];
+  if (userLoans.length > 0) {
+    this.renderPaymentProgress(userLoans[0]);
+  } else {
+    this.renderEmptyPaymentProgress();
+  }
+  
+  this.renderCalendar();
+  this.renderEWSTimeline();
+  this.renderNotifications();
+},
+
+  /**
+ * Render ketika belum ada pengajuan pembiayaan
+ */
+renderNoApplication() {
+  const container = document.querySelector('.card-skeu:nth-child(2)'); // Card kedua adalah application progress
+  if (!container) return;
+  
+  container.innerHTML = `
+    <div class="p-8 text-center">
+      <div class="w-20 h-20 bg-finPeach/30 rounded-full flex items-center justify-center mx-auto mb-4">
+        <i class="fas fa-file-signature text-4xl text-finOrange"></i>
+      </div>
+      <h4 class="font-semibold text-finDeep text-lg mb-2">Belum Ada Pengajuan Pembiayaan</h4>
+      <p class="text-sm text-gray-500 mb-6">Mulai ajukan pembiayaan untuk mengembangkan usaha Anda. Proses cepat dengan AI Matching.</p>
+      <button onclick="App.navigate('matching')" class="btn-primary px-6 py-2.5 rounded-lg font-medium shadow-md inline-flex items-center gap-2">
+        <i class="fas fa-brain"></i>
+        <span>Cek Kemampuan & Ajukan</span>
+      </button>
+    </div>
+  `;
+},
+
+/**
+ * Render progress pengajuan (jika sudah ada)
+ */
+renderApplicationProgress(application) {
+  const container = document.querySelector('.card-skeu:nth-child(2)');
+  if (!container) return;
+  
+  const steps = [
+    { label: 'Ajukan', icon: 'fa-file', status: application.step >= 1 ? 'done' : '' },
+    { label: 'Verifikasi', icon: 'fa-check-double', status: application.step >= 2 ? 'done' : '' },
+    { label: 'OCR', icon: 'fa-camera', status: application.step >= 3 ? 'done' : '' },
+    { label: 'Approval', icon: 'fa-stamp', status: application.step >= 4 ? 'done' : '' },
+    { label: 'Pencairan', icon: 'fa-money-bill-wave', status: application.step >= 5 ? 'done' : 'current' }
+  ];
+  
+  const progressWidth = ((application.step - 1) / 4) * 100;
+  const statusText = application.step === 5 ? 'Disetujui' : 
+                     application.step === 4 ? 'Dalam Approval' :
+                     application.step === 3 ? 'Verifikasi Dokumen' :
+                     application.step === 2 ? 'Verifikasi Data' : 'Menunggu Verifikasi';
+  
+  const statusColor = application.step === 5 ? 'green' : 
+                      application.step === 4 ? 'finOrange' : 'gray';
+  
+  container.innerHTML = `
+    <div class="flex justify-between items-center mb-4">
+      <h4 class="font-semibold text-finDeep flex items-center gap-2">
+        <i class="fas fa-file-signature text-finOrange"></i> Progres Pengajuan Pembiayaan
+      </h4>
+      <span class="text-xs bg-${statusColor}-100 text-${statusColor}-700 px-3 py-1 rounded-full font-semibold">
+        ${statusText}
+      </span>
+    </div>
+    <div class="relative">
+      <div class="flex justify-between mb-2 text-xs text-gray-500">
+        <span>Ajukan</span><span>Verifikasi</span><span>OCR</span><span>Approval</span><span>Pencairan</span>
+      </div>
+      <div class="w-full bg-gray-200 h-2 rounded-full overflow-hidden">
+        <div class="bg-gradient-to-r from-finBright to-finOrange h-2 rounded-full transition-all" style="width: ${progressWidth}%"></div>
+      </div>
+      <div class="flex justify-between mt-2">
+        ${steps.map((step, idx) => `
+          <div class="flex flex-col items-center">
+            <div class="w-8 h-8 rounded-full ${step.status === 'done' ? 'bg-finOrange text-white' : step.status === 'current' ? 'bg-finOrange text-white animate-pulse' : 'bg-gray-200 text-gray-400'} flex items-center justify-center text-xs transition-all">
+              <i class="fas ${step.status === 'done' ? 'fa-check' : step.icon}"></i>
+            </div>
+            ${idx < 4 ? '<div class="w-12 h-0.5 bg-gray-200 mt-4 absolute" style="margin-left: 60px;"></div>' : ''}
+          </div>
+        `).join('')}
+      </div>
+    </div>
+    ${application.amount ? `
+      <p class="text-xs text-gray-500 mt-4">
+        Pengajuan dana sebesar <span class="font-semibold text-finDeep">${this.formatRupiah(application.amount)}</span> 
+        ${application.step === 5 ? `telah disetujui pada ${this.formatDate(application.updatedAt)}` : ''}
+      </p>
+    ` : ''}
+  `;
+},
+
+/**
+ * Render payment progress kosong untuk user baru
+ */
+renderEmptyPaymentProgress() {
+  const grid = document.getElementById('payment-progress-grid');
+  if (!grid) return;
+  
+  grid.innerHTML = '';
+  grid.className = 'grid grid-cols-12 gap-2';
+  
+  for (let i = 1; i <= 12; i++) {
+    const block = document.createElement('div');
+    block.className = 'payment-block upcoming cursor-pointer hover:scale-110 transition-transform';
+    block.innerHTML = `<span class="text-[10px]">${i}</span>`;
+    block.title = `Angsuran ke-${i} - Belum Tersedia`;
+    block.onclick = () => this.showInstallmentDetail(i, null);
+    grid.appendChild(block);
+  }
+  
+  // Tambahkan info text
+  const infoDiv = document.createElement('div');
+  infoDiv.className = 'col-span-12 text-center mt-3 text-xs text-gray-500';
+  infoDiv.innerHTML = '<i class="fas fa-info-circle mr-1"></i>Klik nomor angsuran untuk melihat detail. Angsuran akan tersedia setelah pencairan pinjaman.';
+  grid.appendChild(infoDiv);
+},
+
+/**
+ * Render payment progress dengan data
+ */
+renderPaymentProgress(loan) {
+  const grid = document.getElementById('payment-progress-grid');
+  if (!grid) return;
+  
+  grid.innerHTML = '';
+  grid.className = 'grid grid-cols-12 gap-2';
+  
+  const currentInstallment = loan.currentInstallment || 1;
+  const paidInstallments = loan.paidInstallments || [];
+  
+  for (let i = 1; i <= 12; i++) {
+    const block = document.createElement('div');
+    const isPaid = paidInstallments.includes(i);
+    const isCurrent = i === currentInstallment && !isPaid;
+    
+    let cls = 'upcoming cursor-pointer hover:scale-110';
+    let icon = `<span class="text-[10px]">${i}</span>`;
+    let title = `Angsuran ke-${i}`;
+    
+    if (isPaid) {
+      cls = 'paid cursor-pointer hover:scale-110';
+      icon = '<i class="fas fa-check text-xs"></i>';
+      title += ' - Lunas';
+    } else if (isCurrent) {
+      cls = 'current cursor-pointer animate-pulse hover:scale-110';
+      icon = `<span class="text-[10px]">${i}</span>`;
+      title += ' - Berjalan';
+    } else {
+      title += ' - Belum Tersedia';
+    }
+    
+    block.className = `payment-block ${cls}`;
+    block.innerHTML = icon;
+    block.title = title;
+    block.onclick = () => this.showInstallmentDetail(i, loan);
+    grid.appendChild(block);
+  }
+},
+
+/**
+ * Tampilkan detail angsuran
+ */
+showInstallmentDetail(installmentNum, loan) {
+  const isPaid = loan && loan.paidInstallments?.includes(installmentNum);
+  const isCurrent = loan && installmentNum === loan.currentInstallment && !isPaid;
+  const isUpcoming = !loan || installmentNum > loan.currentInstallment;
+  
+  const amount = loan ? this.formatRupiah(loan.installmentAmount || 2500000) : '-';
+  const dueDate = loan ? this.formatDate(new Date(loan.startDate).setMonth(new Date(loan.startDate).getMonth() + installmentNum - 1)) : '-';
+  const paidDate = isPaid ? this.formatDate(new Date()) : '-';
+  
+  const statusHtml = isPaid 
+    ? '<span class="inline-flex items-center gap-1 text-green-600 font-semibold"><i class="fas fa-check-circle"></i> Lunas</span>'
+    : isCurrent 
+    ? '<span class="inline-flex items-center gap-1 text-finOrange font-semibold"><i class="fas fa-clock"></i> Berjalan</span>'
+    : '<span class="inline-flex items-center gap-1 text-gray-400"><i class="fas fa-lock"></i> Belum Tersedia</span>';
+  
+  const modal = document.createElement('div');
+  modal.className = 'fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in';
+  modal.innerHTML = `
+    <div class="card-skeu w-full max-w-md mx-4 p-6 rounded-2xl animate-slide-down">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-lg font-bold text-finDeep">Detail Angsuran ke-${installmentNum}</h3>
+        <button onclick="this.closest('.fixed').remove()" class="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      
+      <div class="space-y-4">
+        <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+          <span class="text-sm text-gray-600">Status</span>
+          ${statusHtml}
+        </div>
+        
+        <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+          <span class="text-sm text-gray-600">Nominal</span>
+          <span class="font-bold text-finDeep">${amount}</span>
+        </div>
+        
+        <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+          <span class="text-sm text-gray-600">Jatuh Tempo</span>
+          <span class="font-semibold text-finDeep">${dueDate}</span>
+        </div>
+        
+        ${isPaid ? `
+          <div class="flex justify-between items-center p-3 bg-green-50 rounded-lg">
+            <span class="text-sm text-green-700">Tanggal Bayar</span>
+            <span class="font-semibold text-green-700">${paidDate}</span>
+          </div>
+        ` : ''}
+        
+        ${isCurrent ? `
+          <button class="btn-primary w-full py-3 rounded-lg font-semibold shadow-md mt-4">
+            <i class="fas fa-wallet mr-2"></i>Bayar Sekarang
+          </button>
+        ` : ''}
+        
+        ${isUpcoming ? `
+          <div class="p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-xs text-yellow-700">
+            <i class="fas fa-info-circle mr-1"></i>Angsuran ini akan tersedia setelah angsuran sebelumnya lunas.
+          </div>
+        ` : ''}
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+  modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+},
+
+/**
+ * Format rupiah
+ */
+formatRupiah(amount) {
+  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(amount);
+},
+
+/**
+ * Format date
+ */
+formatDate(dateInput) {
+  if (!dateInput) return '-';
+  const date = new Date(dateInput);
+  return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+},
 
   renderTransactions(dateFilter = null, textFilter = null, data = []) {
     const tbody = document.getElementById('tx-table-body');
