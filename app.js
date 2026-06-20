@@ -286,15 +286,37 @@ const App = {
     }
   },
 
-  _enterApp() {
+    _enterApp() {
     document.getElementById('view-auth').classList.add('opacity-0', 'pointer-events-none');
     setTimeout(() => document.getElementById('view-auth').classList.add('hidden'), 500);
     document.getElementById('app-shell').classList.remove('hidden');
     
-    // ✅ Tampilkan nama dari database (sudah diperbaiki)
-    const userName = this.state.user.name || 'Mitra';
+    const user = this.state.user;
+    const userName = user.name || 'Mitra';
+    
+    // ✅ Update nama di top bar & profile
     document.getElementById('user-display').textContent = userName;
     document.getElementById('profile-name').textContent = userName;
+    
+    // ✅ UPDATE BARU: Avatar unik per akun
+    const avatarUrl = this.getAvatarUrl(user);
+    const profileAvatar = document.getElementById('profile-avatar');
+    const topbarAvatar = document.getElementById('topbar-avatar');
+    if (profileAvatar) profileAvatar.src = avatarUrl;
+    if (topbarAvatar) topbarAvatar.src = avatarUrl;
+    
+    // ✅ UPDATE BARU: Tanggal bergabung dinamis dari database
+    const joinDateEl = document.getElementById('join-date');
+    if (joinDateEl) {
+      joinDateEl.textContent = `Bergabung sejak ${this.formatJoinDate(user.createdAt)}`;
+    }
+    
+    // ✅ UPDATE BARU: ID user unik (5 digit terakhir dari UUID)
+    const profileId = document.getElementById('profile-id');
+    if (profileId && user.id) {
+      const shortId = user.id.replace(/-/g, '').substring(0, 5).toUpperCase();
+      profileId.textContent = `FIN-2026-${shortId}`;
+    }
     
     this.loadDashboard();
     this.navigate('dashboard');
@@ -481,7 +503,53 @@ const App = {
     el.innerHTML = `<i class="fas fa-${type === 'error' ? 'exclamation-circle text-red-500' : 'check-circle text-green-500'}"></i><span class="text-sm font-medium text-gray-700">${msg}</span>`;
     container.appendChild(el);
     setTimeout(() => el.remove(), 3500);
-  }
+  },
+    /**
+   * Generate avatar URL unik per user menggunakan DiceBear API
+   * - Setiap nama/ID akan menghasilkan avatar yang berbeda
+   * - Style bervariasi berdasarkan hash (adventurer, bottts, lorelei, dll)
+   * - Warna background disesuaikan dengan brand FINATRA (peach/orange)
+   */
+  getAvatarUrl(user) {
+    const seed = user.id || user.name || user.phone || 'default';
+    const styles = ['adventurer', 'bottts', 'lorelei', 'avataaars', 'big-smile', 'thumbs'];
+    const styleIdx = Math.abs(this._hashCode(seed)) % styles.length;
+    const style = styles[styleIdx];
+    // Warna background brand FINATRA
+    const bgColors = 'ffce99,ff9644,ffdfb8,ffd4a3';
+    return `https://api.dicebear.com/7.1/${style}/svg?seed=${encodeURIComponent(seed)}&backgroundColor=${bgColors}`;
+  },
+
+  /**
+   * Hash function sederhana untuk menghasilkan angka konsisten dari string
+   * Digunakan untuk memilih style avatar yang konsisten per user
+   */
+  _hashCode(str) {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      hash = ((hash << 5) - hash) + str.charCodeAt(i);
+      hash |= 0; // Convert to 32bit integer
+    }
+    return hash;
+  },
+
+  /**
+   * Format tanggal bergabung ke format Indonesia yang mudah dibaca
+   * Contoh: "20 Juni 2026"
+   */
+  formatJoinDate(isoString) {
+    if (!isoString) return 'Baru saja bergabung';
+    try {
+      const date = new Date(isoString);
+      return date.toLocaleDateString('id-ID', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+      });
+    } catch (e) {
+      return 'Baru saja bergabung';
+    }
+  },
 };
 
 // ==========================================
