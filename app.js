@@ -55,7 +55,7 @@ class DatabaseService {
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
     
-    // ✅ Generate avatar URL saat register
+    // ✅ Generate dan simpan avatar URL
     const avatarUrl = this._generateAvatarUrl(name, id);
     
     users[id] = { 
@@ -63,11 +63,10 @@ class DatabaseService {
       name: name, 
       phone, 
       pin, 
-      avatarUrl,
+      avatarUrl,  // ✅ Simpan avatar URL
       createdAt: now,
-      // ✅ Data baru - mulai dari nol
-      applications: [],  // Belum ada pengajuan
-      loans: []          // Belum ada pinjaman
+      applications: [],
+      loans: []
     };
     this._setStore('users', users);
     return { success: true };
@@ -330,18 +329,26 @@ const App = {
   document.getElementById('user-display').textContent = userName;
   document.getElementById('profile-name').textContent = userName;
   
-  // ✅ Update avatar (prioritas: dari database > generate baru)
+  // ✅ Update avatar dengan fallback
   const avatarUrl = user.avatarUrl || this.getAvatarUrl(user);
+  const fallbackUrl = this.getFallbackAvatar(user);
+  
   const profileAvatar = document.getElementById('profile-avatar');
   const topbarAvatar = document.getElementById('topbar-avatar');
   
   if (profileAvatar) {
     profileAvatar.src = avatarUrl;
-    profileAvatar.onerror = () => { profileAvatar.src = this.getAvatarUrl(user); };
+    profileAvatar.onerror = () => { 
+      console.log('Avatar API gagal, menggunakan fallback');
+      profileAvatar.src = fallbackUrl; 
+    };
   }
+  
   if (topbarAvatar) {
     topbarAvatar.src = avatarUrl;
-    topbarAvatar.onerror = () => { topbarAvatar.src = this.getAvatarUrl(user); };
+    topbarAvatar.onerror = () => { 
+      topbarAvatar.src = fallbackUrl; 
+    };
   }
   
   // ✅ Update tanggal bergabung
@@ -388,19 +395,23 @@ const App = {
   const txs = await DB.getTransactions();
   this.renderTransactions(null, null, txs);
   
-  // ✅ Cek apakah user punya pengajuan aktif
-  const userApps = this.state.user.applications || [];
-  const hasActiveApplication = userApps.length > 0;
+  // ✅ Cek apakah user punya data
+  const userLoans = this.state.user.loans || [];
+  const hasActiveLoan = userLoans.length > 0;
   
-  if (hasActiveApplication) {
+  // ✅ Update statistik berdasarkan data user
+  this.updateDashboardStats(hasActiveLoan);
+  
+  // ✅ Cek pengajuan
+  const userApps = this.state.user.applications || [];
+  if (userApps.length > 0) {
     this.renderApplicationProgress(userApps[0]);
   } else {
     this.renderNoApplication();
   }
   
-  // ✅ Render payment progress (mulai dari awal untuk user baru)
-  const userLoans = this.state.user.loans || [];
-  if (userLoans.length > 0) {
+  // ✅ Render payment progress
+  if (hasActiveLoan) {
     this.renderPaymentProgress(userLoans[0]);
   } else {
     this.renderEmptyPaymentProgress();
@@ -409,6 +420,32 @@ const App = {
   this.renderCalendar();
   this.renderEWSTimeline();
   this.renderNotifications();
+},
+
+/**
+ * Update statistik dashboard berdasarkan data user
+ */
+updateDashboardStats(hasActiveLoan) {
+  const limitEl = document.querySelector('#view-dashboard .card-skeu:nth-child(3) h3');
+  const loanEl = document.querySelector('#view-dashboard .card-skeu:nth-child(3) .card-skeu:nth-child(2) h3');
+  const paidEl = document.querySelector('#view-dashboard .card-skeu:nth-child(3) .card-skeu:nth-child(3) h3');
+  
+  if (hasActiveLoan) {
+    // Jika ada pinjaman aktif, tampilkan data
+    const loan = this.state.user.loans[0];
+    if (limitEl) limitEl.textContent = this.formatRupiah(loan.remainingLimit || 45000000);
+    if (loanEl) loanEl.textContent = this.formatRupiah(loan.activeLoan || 25000000);
+    if (paidEl) paidEl.textContent = this.formatRupiah(loan.paidAmount || 0);
+  } else {
+    // ✅ Akun baru: tampilkan 0
+    if (limitEl) limitEl.textContent = 'Rp 0';
+    if (loanEl) loanEl.textContent = 'Rp 0';
+    if (paidEl) paidEl.textContent = 'Rp 0';
+    
+    // Update progress bar jadi 0%
+    const progressBar = document.querySelector('#view-dashboard .card-skeu:nth-child(3) .bg-finOrange');
+    if (progressBar) progressBar.style.width = '0%';
+  }
 },
 
   /**
@@ -798,37 +835,43 @@ formatDate(dateInput) {
     container.appendChild(el);
     setTimeout(() => el.remove(), 3500);
   },
-    /**
-   * Generate avatar URL unik per user menggunakan DiceBear API
-   * - Setiap nama/ID akan menghasilkan avatar yang berbeda
-   * - Style bervariasi berdasarkan hash (adventurer, bottts, lorelei, dll)
-   * - Warna background disesuaikan dengan brand FINATRA (peach/orange)
-   */
   /**
- * Generate avatar URL unik per user menggunakan DiceBear API
+ * Generate avatar URL unik per user dengan fallback SVG inline
  * - Setiap nama akan menghasilkan avatar yang berbeda & konsisten
- * - 6 style berbeda: adventurer, bottts, lorelei, avataaars, big-ears, pixel-art
- * - Warna background brand FINATRA (peach/orange)
+ * - 6 style berbeda dari DiceBear API
+ * - Fallback ke SVG inline jika API gagal
  */
 getAvatarUrl(user) {
   const seed = user.name || user.phone || user.id || 'default';
   const styles = [
-    'adventurer',      // Karakter petualang
-    'bottts',          // Robot lucu
-    'lorelei',         // Wanita artistik
-    'avataaars',       // Avatar profesional
-    'big-ears',        // Karakter imut
-    'pixel-art'        // Pixel art retro
+    'adventurer',
+    'bottts', 
+    'lorelei',
+    'avataaars',
+    'big-ears',
+    'pixel-art'
   ];
   
-  // Pilih style berdasarkan hash nama (konsisten per user)
   const styleIdx = Math.abs(this._hashCode(seed)) % styles.length;
   const style = styles[styleIdx];
-  
-  // Warna background brand FINATRA
   const bgColors = 'ffce99,ff9644,ffd4a3,ffb366';
   
   return `https://api.dicebear.com/7.1/${style}/svg?seed=${encodeURIComponent(seed)}&backgroundColor=${bgColors}`;
+},
+
+/**
+ * Generate inline SVG avatar sebagai fallback
+ * - Menggunakan inisial nama dengan warna brand FINATRA
+ * - Selalu berhasil di-render tanpa perlu API external
+ */
+getFallbackAvatar(user) {
+  const name = user.name || user.phone || 'U';
+  const initials = name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+  const colors = ['#FF7B00', '#FF9644', '#FFCE99', '#800000', '#562F00'];
+  const colorIdx = Math.abs(this._hashCode(name)) % colors.length;
+  const bgColor = colors[colorIdx];
+  
+  return `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect fill="${bgColor}" width="100" height="100" rx="50"/><text x="50" y="65" font-size="40" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-weight="bold">${initials}</text></svg>`;
 },
 
 /**
