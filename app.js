@@ -78,47 +78,33 @@ class DatabaseService {
    * Generate avatar inline SVG dengan inisial nama
    */
   _generateAvatarUrl(name, id) {
-    const nameStr = name || id || 'User';
-    const seed = nameStr.toLowerCase().trim();
-    
-    // Ambil inisial
-    const words = nameStr.trim().split(/\s+/);
-    let initials = '';
-    if (words.length >= 2) {
-      initials = words[0].charAt(0).toUpperCase() + words[1].charAt(0).toUpperCase();
-    } else {
-      initials = words[0].charAt(0).toUpperCase();
-    }
-    
-    // Warna background
-    const colors = [
-      { bg: '#FF7B00', text: '#FFFFFF' },
-      { bg: '#FF9644', text: '#FFFFFF' },
-      { bg: '#800000', text: '#FFFFFF' },
-      { bg: '#562F00', text: '#FFFFFF' },
-      { bg: '#FFCE99', text: '#562F00' },
-      { bg: '#E67E22', text: '#FFFFFF' },
-      { bg: '#D35400', text: '#FFFFFF' },
-      { bg: '#F39C12', text: '#FFFFFF' }
-    ];
-    
-    const colorIdx = Math.abs(this._hashCode(seed)) % colors.length;
-    const color = colors[colorIdx];
-    
-    const safeSeed = seed.replace(/[^a-z0-9]/g, '');
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-      <defs>
-        <linearGradient id="bg_${safeSeed}" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" style="stop-color:${color.bg};stop-opacity:1" />
-          <stop offset="100%" style="stop-color:${this._lightenColor(color.bg, 15)};stop-opacity:1" />
-        </linearGradient>
-      </defs>
-      <circle cx="50" cy="50" r="50" fill="url(#bg_${safeSeed})" />
-      <text x="50" y="50" font-size="${initials.length === 1 ? '50' : '40'}" font-family="Arial, sans-serif" font-weight="bold" fill="${color.text}" text-anchor="middle" dominant-baseline="central">${initials}</text>
-    </svg>`;
-    
-    return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
-  }
+  const nameStr = name || id || 'User';
+  const initials = this._getInitials(nameStr);
+  
+  const colors = [
+    { bg: '#FF7B00', text: '#FFFFFF' },
+    { bg: '#FF9644', text: '#FFFFFF' },
+    { bg: '#800000', text: '#FFFFFF' },
+    { bg: '#FFCE99', text: '#562F00' }
+  ];
+  
+  const hash = this._hashCode(nameStr.toLowerCase());
+  const color = colors[Math.abs(hash) % colors.length];
+  const fontSize = initials.length === 1 ? '45' : '35';
+  
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">
+      <rect width="100" height="100" fill="${color.bg}" rx="50"/>
+      <text x="50" y="50" font-family="Arial, sans-serif" font-weight="bold" 
+            font-size="${fontSize}" fill="${color.text}" 
+            text-anchor="middle" dominant-baseline="central">
+        ${initials}
+      </text>
+    </svg>
+  `;
+  
+  return `data:image/svg+xml;base64,${btoa(svg)}`;
+}
 
   _hashCode(str) {
     let hash = 0;
@@ -817,38 +803,35 @@ const App = {
   },
 
   getAvatarUrl(user) {
-    const name = user.name || user.phone || 'User';
-    const seed = name.toLowerCase().trim();
-    const initials = this._getInitials(name);
-    
-    const colors = [
-      { bg: '#FF7B00', text: '#FFFFFF' },
-      { bg: '#FF9644', text: '#FFFFFF' },
-      { bg: '#800000', text: '#FFFFFF' },
-      { bg: '#562F00', text: '#FFFFFF' },
-      { bg: '#FFCE99', text: '#562F00' },
-      { bg: '#E67E22', text: '#FFFFFF' },
-      { bg: '#D35400', text: '#FFFFFF' },
-      { bg: '#F39C12', text: '#FFFFFF' }
-    ];
-    
-    const colorIdx = Math.abs(this._hashCode(seed)) % colors.length;
-    const color = colors[colorIdx];
-    
-    const safeSeed = seed.replace(/[^a-z0-9]/g, '');
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-      <defs>
-        <linearGradient id="bg_${safeSeed}" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" style="stop-color:${color.bg};stop-opacity:1" />
-          <stop offset="100%" style="stop-color:${this._lightenColor(color.bg, 15)};stop-opacity:1" />
-        </linearGradient>
-      </defs>
-      <circle cx="50" cy="50" r="50" fill="url(#bg_${safeSeed})" />
-      <text x="50" y="50" font-size="${initials.length === 1 ? '50' : '40'}" font-family="Arial, sans-serif" font-weight="bold" fill="${color.text}" text-anchor="middle" dominant-baseline="central">${initials}</text>
-    </svg>`;
-    
-    return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
-  },
+  const name = user.name || user.phone || 'User';
+  const initials = this._getInitials(name);
+  
+  // Warna berdasarkan hash nama
+  const colors = [
+    { bg: '#FF7B00', text: '#FFFFFF' },
+    { bg: '#FF9644', text: '#FFFFFF' },
+    { bg: '#800000', text: '#FFFFFF' },
+    { bg: '#FFCE99', text: '#562F00' }
+  ];
+  
+  const hash = this._hashCode(name.toLowerCase());
+  const color = colors[Math.abs(hash) % colors.length];
+  const fontSize = initials.length === 1 ? '45' : '35';
+  
+  // SVG simple tanpa gradient (lebih reliable)
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">
+      <rect width="100" height="100" fill="${color.bg}" rx="50"/>
+      <text x="50" y="50" font-family="Arial, sans-serif" font-weight="bold" 
+            font-size="${fontSize}" fill="${color.text}" 
+            text-anchor="middle" dominant-baseline="central">
+        ${initials}
+      </text>
+    </svg>
+  `;
+  
+  return `data:image/svg+xml;base64,${btoa(svg)}`;
+},
 
   _getInitials(name) {
     if (!name) return 'U';
