@@ -47,25 +47,54 @@ class DatabaseService {
   }
 
   async register(name, phone, pin) {
-    if (this.mode === 'dev') {
-      let users = this._getStore('users') || {};
-      if (Object.values(users).find(u => u.phone === phone)) {
-        return { success: false, error: 'Nomor sudah terdaftar.' };
-      }
-      const id = crypto.randomUUID();
-      // ✅ Simpan NAMA ke database
-      users[id] = { 
-        id, 
-        name: name, 
-        phone, 
-        pin, 
-        createdAt: new Date().toISOString() 
-      };
-      this._setStore('users', users);
-      return { success: true };
+  if (this.mode === 'dev') {
+    let users = this._getStore('users') || {};
+    if (Object.values(users).find(u => u.phone === phone)) {
+      return { success: false, error: 'Nomor sudah terdaftar.' };
     }
+    const id = crypto.randomUUID();
+    const now = new Date().toISOString();
+    
+    // ✅ Generate avatar URL saat register
+    const avatarUrl = this._generateAvatarUrl(name, id);
+    
+    users[id] = { 
+      id, 
+      name: name, 
+      phone, 
+      pin, 
+      avatarUrl,  // ✅ Simpan avatar URL ke database
+      createdAt: now  // ✅ Simpan tanggal daftar
+    };
+    this._setStore('users', users);
     return { success: true };
   }
+  return { success: true };
+}
+
+/**
+ * Helper untuk generate avatar URL (digunakan saat register)
+ */
+_generateAvatarUrl(name, id) {
+  const seed = name || id || 'default';
+  const styles = ['adventurer', 'bottts', 'lorelei', 'avataaars', 'big-ears', 'pixel-art'];
+  const styleIdx = Math.abs(this._hashCode(seed)) % styles.length;
+  const style = styles[styleIdx];
+  const bgColors = 'ffce99,ff9644,ffd4a3,ffb366';
+  return `https://api.dicebear.com/7.1/${style}/svg?seed=${encodeURIComponent(seed)}&backgroundColor=${bgColors}`;
+}
+
+/**
+ * Hash function untuk DatabaseService
+ */
+_hashCode(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash) + str.charCodeAt(i);
+    hash |= 0;
+  }
+  return hash;
+}
 
   getSession() { return this._getStore('session'); }
   clearSession() { localStorage.removeItem(this.PREFIX + 'session'); }
@@ -287,40 +316,47 @@ const App = {
   },
 
     _enterApp() {
-    document.getElementById('view-auth').classList.add('opacity-0', 'pointer-events-none');
-    setTimeout(() => document.getElementById('view-auth').classList.add('hidden'), 500);
-    document.getElementById('app-shell').classList.remove('hidden');
-    
-    const user = this.state.user;
-    const userName = user.name || 'Mitra';
-    
-    // ✅ Update nama di top bar & profile
-    document.getElementById('user-display').textContent = userName;
-    document.getElementById('profile-name').textContent = userName;
-    
-    // ✅ UPDATE BARU: Avatar unik per akun
-    const avatarUrl = this.getAvatarUrl(user);
-    const profileAvatar = document.getElementById('profile-avatar');
-    const topbarAvatar = document.getElementById('topbar-avatar');
-    if (profileAvatar) profileAvatar.src = avatarUrl;
-    if (topbarAvatar) topbarAvatar.src = avatarUrl;
-    
-    // ✅ UPDATE BARU: Tanggal bergabung dinamis dari database
-    const joinDateEl = document.getElementById('join-date');
-    if (joinDateEl) {
-      joinDateEl.textContent = `Bergabung sejak ${this.formatJoinDate(user.createdAt)}`;
-    }
-    
-    // ✅ UPDATE BARU: ID user unik (5 digit terakhir dari UUID)
-    const profileId = document.getElementById('profile-id');
-    if (profileId && user.id) {
-      const shortId = user.id.replace(/-/g, '').substring(0, 5).toUpperCase();
-      profileId.textContent = `FIN-2026-${shortId}`;
-    }
-    
-    this.loadDashboard();
-    this.navigate('dashboard');
-  },
+  document.getElementById('view-auth').classList.add('opacity-0', 'pointer-events-none');
+  setTimeout(() => document.getElementById('view-auth').classList.add('hidden'), 500);
+  document.getElementById('app-shell').classList.remove('hidden');
+  
+  const user = this.state.user;
+  const userName = user.name || 'Mitra';
+  
+  // ✅ Update nama
+  document.getElementById('user-display').textContent = userName;
+  document.getElementById('profile-name').textContent = userName;
+  
+  // ✅ Update avatar (prioritas: dari database > generate baru)
+  const avatarUrl = user.avatarUrl || this.getAvatarUrl(user);
+  const profileAvatar = document.getElementById('profile-avatar');
+  const topbarAvatar = document.getElementById('topbar-avatar');
+  
+  if (profileAvatar) {
+    profileAvatar.src = avatarUrl;
+    profileAvatar.onerror = () => { profileAvatar.src = this.getAvatarUrl(user); };
+  }
+  if (topbarAvatar) {
+    topbarAvatar.src = avatarUrl;
+    topbarAvatar.onerror = () => { topbarAvatar.src = this.getAvatarUrl(user); };
+  }
+  
+  // ✅ Update tanggal bergabung
+  const joinDateEl = document.getElementById('join-date');
+  if (joinDateEl) {
+    joinDateEl.textContent = `Bergabung sejak ${this.formatJoinDate(user.createdAt)}`;
+  }
+  
+  // ✅ Update ID user
+  const profileId = document.getElementById('profile-id');
+  if (profileId && user.id) {
+    const shortId = user.id.replace(/-/g, '').substring(0, 5).toUpperCase();
+    profileId.textContent = `FIN-2026-${shortId}`;
+  }
+  
+  this.loadDashboard();
+  this.navigate('dashboard');
+},
 
   navigate(viewName) {
     this.state.view = viewName;
@@ -510,15 +546,44 @@ const App = {
    * - Style bervariasi berdasarkan hash (adventurer, bottts, lorelei, dll)
    * - Warna background disesuaikan dengan brand FINATRA (peach/orange)
    */
-  getAvatarUrl(user) {
-    const seed = user.id || user.name || user.phone || 'default';
-    const styles = ['adventurer', 'bottts', 'lorelei', 'avataaars', 'big-smile', 'thumbs'];
-    const styleIdx = Math.abs(this._hashCode(seed)) % styles.length;
-    const style = styles[styleIdx];
-    // Warna background brand FINATRA
-    const bgColors = 'ffce99,ff9644,ffdfb8,ffd4a3';
-    return `https://api.dicebear.com/7.1/${style}/svg?seed=${encodeURIComponent(seed)}&backgroundColor=${bgColors}`;
-  },
+  /**
+ * Generate avatar URL unik per user menggunakan DiceBear API
+ * - Setiap nama akan menghasilkan avatar yang berbeda & konsisten
+ * - 6 style berbeda: adventurer, bottts, lorelei, avataaars, big-ears, pixel-art
+ * - Warna background brand FINATRA (peach/orange)
+ */
+getAvatarUrl(user) {
+  const seed = user.name || user.phone || user.id || 'default';
+  const styles = [
+    'adventurer',      // Karakter petualang
+    'bottts',          // Robot lucu
+    'lorelei',         // Wanita artistik
+    'avataaars',       // Avatar profesional
+    'big-ears',        // Karakter imut
+    'pixel-art'        // Pixel art retro
+  ];
+  
+  // Pilih style berdasarkan hash nama (konsisten per user)
+  const styleIdx = Math.abs(this._hashCode(seed)) % styles.length;
+  const style = styles[styleIdx];
+  
+  // Warna background brand FINATRA
+  const bgColors = 'ffce99,ff9644,ffd4a3,ffb366';
+  
+  return `https://api.dicebear.com/7.1/${style}/svg?seed=${encodeURIComponent(seed)}&backgroundColor=${bgColors}`;
+},
+
+/**
+ * Hash function untuk menghasilkan angka konsisten dari string
+ */
+_hashCode(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash) + str.charCodeAt(i);
+    hash |= 0;
+  }
+  return hash;
+},
 
   /**
    * Hash function sederhana untuk menghasilkan angka konsisten dari string
