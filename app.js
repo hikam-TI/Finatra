@@ -1,12 +1,14 @@
 /**
- * FINATRA TRACKER v2.3 - FINAL PRODUCTION
+ * FINATRA TRACKER v3.0 - FINAL PRODUCTION
  * ========================================
- * FIX v2.3:
- * - Avatar: Inline SVG dengan inisial nama (selalu muncul)
+ * FITUR LENGKAP:
+ * - Avatar: Inline SVG dengan inisial nama
  * - UUID: Fallback untuk crypto.randomUUID()
  * - Auth: Nama dari database saat login
  * - Dashboard: Reset ke 0 untuk akun baru
- * - Payment: Clickable dengan modal detail
+ * - AI Matching: Limit 70% agunan, Bunga 9-16%, Tenor 12-60
+ * - Payment: 4 metode (AstraPay, Transfer, VA, Minimarket)
+ * - Payment History: Tersimpan per user
  */
 
 // ==========================================
@@ -56,7 +58,6 @@ class DatabaseService {
       return { success: false, error: 'Nomor sudah terdaftar.' };
     }
     
-    // ✅ Gunakan generateUUID() bukan crypto.randomUUID()
     const id = generateUUID();
     const now = new Date().toISOString();
     const avatarUrl = this._generateAvatarUrl(name, id);
@@ -69,16 +70,13 @@ class DatabaseService {
       avatarUrl,
       createdAt: now,
       applications: [],
-      loans: []
+      loans: [],
+      paymentHistory: []
     };
     this._setStore('users', users);
     return { success: true };
   }
 
-  /**
-   * ✅ FIX: Generate avatar inline SVG dengan inisial nama
-   * Method ini sekarang punya _getInitials sendiri
-   */
   _generateAvatarUrl(name, id) {
     const nameStr = name || id || 'User';
     const initials = this._getInitials(nameStr);
@@ -108,9 +106,6 @@ class DatabaseService {
     return `data:image/svg+xml;base64,${btoa(svg)}`;
   }
 
-  /**
-   * ✅ FIX: Method _getInitials sekarang ada di DatabaseService
-   */
   _getInitials(name) {
     if (!name) return 'U';
     const words = name.trim().split(/\s+/);
@@ -142,13 +137,7 @@ class DatabaseService {
   }
 
   _seedTransactions() {
-    const txs = [
-      { id: 'KW-88421', date: '2026-06-15', amount: 2500000, method: 'AstraPay', status: 'Success' },
-      { id: 'KW-88390', date: '2026-05-15', amount: 2500000, method: 'Transfer Bank', status: 'Success' },
-      { id: 'KW-88201', date: '2026-04-15', amount: 2500000, method: 'Virtual Account', status: 'Pending' },
-      { id: 'KW-87992', date: '2026-03-15', amount: 2500000, method: 'AstraPay', status: 'Success' },
-      { id: 'KW-87801', date: '2026-02-15', amount: 2500000, method: 'AstraPay', status: 'Success' },
-    ];
+    const txs = [];
     this._setStore('transactions', txs);
     return txs;
   }
@@ -319,6 +308,12 @@ const App = {
       area.addEventListener('click', () => area.querySelector('.ocr-input').click());
       area.querySelector('.ocr-input').addEventListener('change', (e) => this.ocrService.process(e, area));
     });
+
+    // ✅ BARU: Event listener untuk tombol Bayar Sekarang
+    const btnPay = document.getElementById('btn-pay-now');
+    if (btnPay) {
+      btnPay.addEventListener('click', () => this.processPayment());
+    }
   },
 
   checkSession() {
@@ -411,6 +406,10 @@ const App = {
     this.renderCalendar();
     this.renderEWSTimeline();
     this.renderNotifications();
+    
+    // ✅ BARU: Render info pembayaran & riwayat
+    this.renderPaymentInfo();
+    this.renderMyPaymentHistory();
   },
 
   updateDashboardStats(hasActiveLoan) {
@@ -424,13 +423,16 @@ const App = {
     
     if (hasActiveLoan) {
       const loan = this.state.user.loans[0];
-      if (limitEl) limitEl.textContent = this.formatRupiah(loan.remainingLimit || 45000000);
-      if (loanEl) loanEl.textContent = this.formatRupiah(loan.activeLoan || 25000000);
+      const totalLimit = loan.collateralValue * 0.7;
+      const paidPercent = (loan.paidInstallments.length / loan.tenor) * 100;
+      
+      if (limitEl) limitEl.textContent = this.formatRupiah(totalLimit - loan.activeLoan);
+      if (loanEl) loanEl.textContent = this.formatRupiah(loan.activeLoan);
       if (paidEl) paidEl.textContent = this.formatRupiah(loan.paidAmount || 0);
-      if (progressBar) progressBar.style.width = '65%';
-      if (limitInfo) limitInfo.textContent = '65% dari total limit';
-      if (loanStatus) loanStatus.textContent = 'Cicilan lancar';
-      if (paidInfo) paidInfo.textContent = 'Dari 12 angsuran';
+      if (progressBar) progressBar.style.width = `${paidPercent}%`;
+      if (limitInfo) limitInfo.textContent = `${paidPercent.toFixed(0)}% sudah terbayar`;
+      if (loanStatus) loanStatus.textContent = `${loan.paidInstallments.length}/${loan.tenor} angsuran lunas`;
+      if (paidInfo) paidInfo.textContent = `Dari ${loan.tenor} angsuran`;
     } else {
       if (limitEl) limitEl.textContent = 'Rp 0';
       if (loanEl) loanEl.textContent = 'Rp 0';
@@ -543,7 +545,7 @@ const App = {
     const currentInstallment = loan.currentInstallment || 1;
     const paidInstallments = loan.paidInstallments || [];
     
-    for (let i = 1; i <= 12; i++) {
+    for (let i = 1; i <= loan.tenor; i++) {
       const block = document.createElement('div');
       const isPaid = paidInstallments.includes(i);
       const isCurrent = i === currentInstallment && !isPaid;
@@ -576,8 +578,8 @@ const App = {
     const isCurrent = loan && installmentNum === loan.currentInstallment && !isPaid;
     const isUpcoming = !loan || installmentNum > loan.currentInstallment;
     
-    const amount = loan ? this.formatRupiah(loan.installmentAmount || 2500000) : '-';
-    const dueDate = loan ? this.formatDate(new Date(loan.startDate).setMonth(new Date(loan.startDate).getMonth() + installmentNum - 1)) : '-';
+    const amount = loan ? this.formatRupiah(loan.monthlyPayment) : '-';
+    const dueDate = loan ? this.formatDate(new Date(loan.startDate).setMonth(new Date(loan.startDate).getMonth() + installmentNum)) : '-';
     
     const statusHtml = isPaid 
       ? '<span class="inline-flex items-center gap-1 text-green-600 font-semibold"><i class="fas fa-check-circle"></i> Lunas</span>'
@@ -624,6 +626,149 @@ const App = {
     
     document.body.appendChild(modal);
     modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+  },
+
+  // ✅ BARU: Render info pembayaran angsuran berjalan
+  renderPaymentInfo() {
+    const loan = this.state.user.loans?.[0];
+    const badge = document.getElementById('payment-status-badge');
+    const installmentNum = document.getElementById('current-installment-num');
+    const dueDate = document.getElementById('current-due-date');
+    const billAmount = document.getElementById('current-bill-amount');
+    const daysRemaining = document.getElementById('days-remaining');
+    const paymentMethods = document.getElementById('payment-methods');
+    const btnPay = document.getElementById('btn-pay-now');
+    const paymentInfo = document.getElementById('payment-info');
+    
+    if (!loan || loan.paidInstallments.length >= loan.tenor) {
+      if (badge) { badge.textContent = 'Lunas'; badge.className = 'text-xs bg-green-100 text-green-700 px-3 py-1 rounded-full'; }
+      if (installmentNum) installmentNum.textContent = '-';
+      if (dueDate) dueDate.textContent = '-';
+      if (billAmount) billAmount.textContent = '-';
+      if (daysRemaining) daysRemaining.textContent = '-';
+      if (paymentMethods) paymentMethods.classList.add('hidden');
+      if (btnPay) btnPay.classList.add('hidden');
+      if (paymentInfo) paymentInfo.innerHTML = '<p class="text-center text-green-600 font-semibold py-4">🎉 Semua angsuran lunas!</p>';
+      return;
+    }
+    
+    const current = loan.currentInstallment;
+    const startDate = new Date(loan.startDate);
+    const dueDateObj = new Date(startDate);
+    dueDateObj.setMonth(dueDateObj.getMonth() + current);
+    
+    const today = new Date();
+    const daysLeft = Math.ceil((dueDateObj - today) / (1000 * 60 * 60 * 24));
+    
+    if (badge) {
+      if (daysLeft < 0) { badge.textContent = 'Terlambat'; badge.className = 'text-xs bg-red-100 text-red-700 px-3 py-1 rounded-full'; }
+      else if (daysLeft <= 3) { badge.textContent = 'Segera Bayar'; badge.className = 'text-xs bg-orange-100 text-orange-700 px-3 py-1 rounded-full'; }
+      else { badge.textContent = 'Aktif'; badge.className = 'text-xs bg-green-100 text-green-700 px-3 py-1 rounded-full'; }
+    }
+    if (installmentNum) installmentNum.textContent = `${current} / ${loan.tenor}`;
+    if (dueDate) dueDate.textContent = this.formatDate(dueDateObj);
+    if (billAmount) billAmount.textContent = this.formatRupiah(loan.monthlyPayment);
+    if (daysRemaining) {
+      daysRemaining.textContent = daysLeft < 0 ? `${Math.abs(daysLeft)} hari` : `${daysLeft} hari`;
+      if (daysLeft < 0) daysRemaining.className = 'text-xl font-bold text-red-500';
+      else if (daysLeft <= 3) daysRemaining.className = 'text-xl font-bold text-orange-500';
+      else daysRemaining.className = 'text-xl font-bold text-green-600';
+    }
+    
+    if (paymentMethods) paymentMethods.classList.remove('hidden');
+    if (btnPay) btnPay.classList.remove('hidden');
+  },
+
+  // ✅ BARU: Proses pembayaran
+  processPayment() {
+    const loan = this.state.user.loans?.[0];
+    if (!loan) return this.toast('Tidak ada pinjaman aktif.', 'error');
+    
+    const method = document.querySelector('input[name="payment-method"]:checked')?.value;
+    const methodNames = {
+      astrapay: 'AstraPay Auto-Debit',
+      transfer: 'Transfer Bank',
+      va: 'Virtual Account',
+      minimarket: 'Minimarket'
+    };
+    
+    if (!confirm(`Konfirmasi pembayaran angsuran ke-${loan.currentInstallment} sebesar ${this.formatRupiah(loan.monthlyPayment)} via ${methodNames[method]}?`)) {
+      return;
+    }
+    
+    const btn = document.getElementById('btn-pay-now');
+    const originalHTML = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Memproses...`;
+    
+    setTimeout(() => {
+      loan.paidInstallments.push(loan.currentInstallment);
+      loan.paidAmount = (loan.paidAmount || 0) + loan.monthlyPayment;
+      loan.activeLoan = loan.amount - loan.paidAmount;
+      loan.currentInstallment = loan.currentInstallment + 1;
+      
+      const users = DB._getStore('users') || {};
+      users[this.state.user.id] = this.state.user;
+      DB._setStore('users', users);
+      
+      const txs = DB._getStore('transactions') || [];
+      txs.unshift({
+        id: 'KW-' + Date.now().toString().slice(-6),
+        date: new Date().toISOString().split('T')[0],
+        amount: loan.monthlyPayment,
+        method: methodNames[method],
+        status: 'Success'
+      });
+      DB._setStore('transactions', txs);
+      
+      const paymentHistory = this.state.user.paymentHistory || [];
+      paymentHistory.push({
+        installment: loan.currentInstallment - 1,
+        date: new Date().toISOString(),
+        amount: loan.monthlyPayment,
+        method: methodNames[method],
+        status: 'Success'
+      });
+      this.state.user.paymentHistory = paymentHistory;
+      
+      btn.disabled = false;
+      btn.innerHTML = originalHTML;
+      
+      this.toast(`Pembayaran angsuran ke-${loan.currentInstallment - 1} berhasil!`);
+      
+      this.loadDashboard();
+    }, 1500);
+  },
+
+  // ✅ BARU: Render riwayat pembayaran user
+  renderMyPaymentHistory() {
+    const container = document.getElementById('my-payment-history');
+    if (!container) return;
+    
+    const history = this.state.user.paymentHistory || [];
+    
+    if (history.length === 0) {
+      container.innerHTML = '<p class="text-sm text-gray-400 text-center py-4">Belum ada riwayat pembayaran</p>';
+      return;
+    }
+    
+    container.innerHTML = history.slice().reverse().map(p => `
+      <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg border-l-4 border-green-500">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-green-600">
+            <i class="fas fa-check"></i>
+          </div>
+          <div>
+            <p class="text-sm font-semibold text-finDeep">Angsuran ke-${p.installment}</p>
+            <p class="text-[10px] text-gray-500">${this.formatDate(p.date)} • ${p.method}</p>
+          </div>
+        </div>
+        <div class="text-right">
+          <p class="font-bold text-sm text-finDeep">${this.formatRupiah(p.amount)}</p>
+          <p class="text-[10px] text-green-600">Lunas</p>
+        </div>
+      </div>
+    `).join('');
   },
 
   formatRupiah(amount) {
@@ -837,114 +982,213 @@ const App = {
 };
 
 // ==========================================
-// 3. AI MATCHING ENGINE
+// 3. AI MATCHING ENGINE (UPDATED)
 // ==========================================
 const AIEngine = {
-  locationFactor: {
-    jakarta: 1.0, bandung: 0.95, surabaya: 0.98, semarang: 0.92,
-    yogyakarta: 0.90, medan: 0.88, makassar: 0.85, denpasar: 0.93, lainnya: 0.80
-  },
-  collateralFactor: {
-    bpb_mobil: 1.2, sertifikat: 1.5, bpb_motor: 0.8
-  },
-
   evaluate() {
     const revenue = parseFloat(document.getElementById('revenue').value) || 0;
     const capability = parseFloat(document.getElementById('capability').value) || 0;
+    const collateralValue = parseFloat(document.getElementById('collateral-value').value) || 0;
     const location = document.getElementById('location').value;
     const collateral = document.getElementById('collateral').value;
     const assetYear = parseInt(document.getElementById('asset-year').value) || 2020;
+    const businessType = document.getElementById('business-type').value;
     const resultsContainer = document.getElementById('ai-results');
 
-    if (revenue === 0 || capability === 0) return App.toast('Lengkapi pendapatan & kemampuan bayar.', 'error');
+    if (revenue === 0 || capability === 0 || collateralValue === 0) {
+      return App.toast('Lengkapi semua field termasuk nilai agunan.', 'error');
+    }
 
-    const dti = capability / revenue;
-    const locFactor = this.locationFactor[location] || 0.8;
-    const colFactor = this.collateralFactor[collateral] || 1.0;
-    const ageFactor = Math.max(0.5, 1 - ((2026 - assetYear) * 0.05));
-
-    const baseLimit = capability * 12;
-    const adjustedLimit = baseLimit * locFactor * colFactor * ageFactor;
+    // ✅ HITUNG LIMIT: 70% dari nilai agunan
+    const baseLimit = collateralValue * 0.7;
     
+    // ✅ FAKTOR BUNGA (9% - 16%)
+    const locationFactor = {
+      jakarta: 1.0, bandung: 1.02, surabaya: 1.02, semarang: 1.04,
+      yogyakarta: 1.04, denpasar: 1.06, medan: 1.08, makassar: 1.10, lainnya: 1.15
+    };
+    
+    const collateralFactor = {
+      sertifikat: 1.0, bpb_mobil: 1.08, bpb_motor: 1.15
+    };
+    
+    const businessFactor = {
+      besar: 1.0, menengah: 1.05, umkm: 1.10, personal: 1.15
+    };
+    
+    const dti = capability / revenue;
+    let dtiFactor = 1.0;
+    if (dti > 0.5) dtiFactor = 1.20;
+    else if (dti > 0.3) dtiFactor = 1.10;
+    else if (dti > 0.2) dtiFactor = 1.05;
+    
+    const ageFactor = Math.max(1.0, 1 + ((2026 - assetYear) * 0.02));
+    
+    const baseRate = 9;
+    const maxRate = 16;
+    
+    let calculatedRate = baseRate * 
+      locationFactor[location] * 
+      collateralFactor[collateral] * 
+      businessFactor[businessType] * 
+      dtiFactor * 
+      ageFactor;
+    
+    calculatedRate = Math.min(maxRate, Math.max(baseRate, calculatedRate));
+    
+    // ✅ TENOR KELIPATAN 12: 12, 24, 36, 48, 60
     const tenors = [
-      { label: '6 Bulan', value: 6, interest: 1.2 },
-      { label: '12 Bulan', value: 12, interest: 1.0 },
-      { label: '24 Bulan', value: 24, interest: 0.95 },
-      { label: '36 Bulan', value: 36, interest: 0.90 }
+      { label: '12 Bulan', value: 12 },
+      { label: '24 Bulan', value: 24 },
+      { label: '36 Bulan', value: 36 },
+      { label: '48 Bulan', value: 48 },
+      { label: '60 Bulan', value: 60 }
     ];
+
+    const tenorResults = tenors.map(t => {
+      const tenorRateAdjustment = ((t.value - 12) / 12) * 0.5;
+      const finalRate = Math.min(maxRate, calculatedRate + tenorRateAdjustment);
+      
+      const totalInterest = baseLimit * (finalRate / 100) * (t.value / 12);
+      const totalPayment = baseLimit + totalInterest;
+      const monthlyPayment = totalPayment / t.value;
+      
+      const feasible = monthlyPayment <= capability;
+      const dtiAfterLoan = (monthlyPayment / revenue) * 100;
+      
+      return {
+        ...t,
+        rate: finalRate,
+        monthlyPayment,
+        totalInterest,
+        totalPayment,
+        feasible,
+        dtiAfterLoan
+      };
+    });
+
+    // Simpan ke state user
+    App.state.user.loans = App.state.user.loans || [];
+    App.state.user.loans[0] = {
+      id: 'LOAN-' + Date.now(),
+      amount: baseLimit,
+      collateralValue,
+      collateralType: collateral,
+      interestRate: tenorResults[0].rate,
+      tenor: 12,
+      monthlyPayment: tenorResults[0].monthlyPayment,
+      startDate: new Date().toISOString(),
+      currentInstallment: 1,
+      paidInstallments: [],
+      remainingLimit: 0,
+      activeLoan: baseLimit,
+      paidAmount: 0
+    };
+    
+    const users = DB._getStore('users') || {};
+    users[App.state.user.id] = App.state.user;
+    DB._setStore('users', users);
 
     const fmt = (n) => App.formatRupiah(n);
 
     resultsContainer.innerHTML = `
       <div class="card-skeu p-5 rounded-2xl reveal active">
-        <h4 class="font-semibold text-finDeep mb-3">Ringkasan Analisis</h4>
+        <h4 class="font-semibold text-finDeep mb-3">💰 Ringkasan Analisis</h4>
         <div class="grid grid-cols-2 gap-3 text-xs">
+          <div class="p-2 bg-finPeach/20 rounded-lg">
+            <p class="text-gray-500">Nilai Agunan</p>
+            <p class="font-bold text-finDeep">${fmt(collateralValue)}</p>
+          </div>
+          <div class="p-2 bg-finPeach/20 rounded-lg">
+            <p class="text-gray-500">Limit (70%)</p>
+            <p class="font-bold text-finOrange">${fmt(baseLimit)}</p>
+          </div>
           <div class="p-2 bg-finPeach/20 rounded-lg">
             <p class="text-gray-500">DTI Ratio</p>
             <p class="font-bold text-finDeep">${(dti * 100).toFixed(1)}%</p>
           </div>
           <div class="p-2 bg-finPeach/20 rounded-lg">
-            <p class="text-gray-500">Skor Lokasi</p>
-            <p class="font-bold text-finDeep">${(locFactor * 100).toFixed(0)}%</p>
-          </div>
-          <div class="p-2 bg-finPeach/20 rounded-lg">
-            <p class="text-gray-500">Nilai Agunan</p>
-            <p class="font-bold text-finDeep">${(colFactor * 100).toFixed(0)}%</p>
-          </div>
-          <div class="p-2 bg-finPeach/20 rounded-lg">
-            <p class="text-gray-500">Kondisi Aset</p>
-            <p class="font-bold text-finDeep">${(ageFactor * 100).toFixed(0)}%</p>
+            <p class="text-gray-500">Bunga Dasar</p>
+            <p class="font-bold text-finDeep">${calculatedRate.toFixed(2)}%</p>
           </div>
         </div>
         <div class="mt-4 p-3 bg-gradient-to-r from-finOrange/10 to-finPeach/20 rounded-lg">
           <p class="text-xs text-gray-600">Jumlah Pinjaman Ideal</p>
-          <p class="text-2xl font-bold text-finOrange">${fmt(adjustedLimit)}</p>
+          <p class="text-2xl font-bold text-finOrange">${fmt(baseLimit)}</p>
+          <p class="text-[10px] text-gray-500 mt-1">70% dari nilai agunan ${fmt(collateralValue)}</p>
         </div>
       </div>
 
       <div class="card-skeu p-5 rounded-2xl reveal active">
-        <h4 class="font-semibold text-finDeep mb-3">Rekomendasi Tenor</h4>
+        <h4 class="font-semibold text-finDeep mb-3">📅 Rekomendasi Tenor & Bunga</h4>
         <div class="space-y-2">
-          ${tenors.map(t => {
-            const monthly = (adjustedLimit / t.value) * (1 + t.interest / 100);
-            const feasible = monthly <= capability;
-            return `
-              <div class="p-3 rounded-lg border-2 ${feasible ? 'border-green-300 bg-green-50' : 'border-gray-200 bg-gray-50 opacity-60'}">
-                <div class="flex justify-between items-center">
-                  <div>
-                    <p class="font-semibold text-sm">${t.label}</p>
-                    <p class="text-[10px] text-gray-500">Bunga ${t.interest}%/bulan</p>
-                  </div>
-                  <div class="text-right">
-                    <p class="font-bold text-sm ${feasible ? 'text-green-700' : 'text-gray-500'}">${fmt(monthly)}/bln</p>
-                    <p class="text-[10px] ${feasible ? 'text-green-600' : 'text-red-500'}">${feasible ? '✓ Direkomendasikan' : '✗ Melebihi kemampuan'}</p>
-                  </div>
+          ${tenorResults.map(t => `
+            <div class="p-3 rounded-lg border-2 ${t.feasible ? 'border-green-300 bg-green-50' : 'border-red-300 bg-red-50 opacity-70'}">
+              <div class="flex justify-between items-start mb-2">
+                <div>
+                  <p class="font-semibold text-sm">${t.label}</p>
+                  <p class="text-[10px] text-gray-500">Bunga ${t.rate.toFixed(2)}%/tahun</p>
+                </div>
+                <div class="text-right">
+                  <p class="font-bold text-sm ${t.feasible ? 'text-green-700' : 'text-red-600'}">${fmt(t.monthlyPayment)}/bln</p>
+                  <p class="text-[10px] ${t.feasible ? 'text-green-600' : 'text-red-500'}">
+                    ${t.feasible ? '✓ Layak' : '✗ Melebihi kemampuan'}
+                  </p>
                 </div>
               </div>
-            `;
-          }).join('')}
+              <div class="grid grid-cols-3 gap-2 text-[10px] text-gray-600 pt-2 border-t border-gray-200">
+                <div>
+                  <p class="text-gray-400">Total Bunga</p>
+                  <p class="font-semibold">${fmt(t.totalInterest)}</p>
+                </div>
+                <div>
+                  <p class="text-gray-400">Total Bayar</p>
+                  <p class="font-semibold">${fmt(t.totalPayment)}</p>
+                </div>
+                <div>
+                  <p class="text-gray-400">DTI Setelah</p>
+                  <p class="font-semibold ${t.dtiAfterLoan > 50 ? 'text-red-500' : 'text-green-600'}">${t.dtiAfterLoan.toFixed(1)}%</p>
+                </div>
+              </div>
+            </div>
+          `).join('')}
         </div>
       </div>
 
       <div class="card-skeu p-5 rounded-2xl reveal active">
-        <h4 class="font-semibold text-finDeep mb-3">Kategori Risiko</h4>
-        ${this.renderRiskCards(dti)}
+        <h4 class="font-semibold text-finDeep mb-3">️ Kategori Risiko</h4>
+        ${this.renderRiskCards(dti, baseLimit)}
       </div>
+
+      <button onclick="App.navigate('dashboard')" class="btn-primary w-full py-3 rounded-lg font-semibold shadow-md">
+        <i class="fas fa-check-circle mr-2"></i>Gunakan Rekomendasi Ini
+      </button>
     `;
 
-    App.toast('Analisis AI selesai.');
+    App.toast('Analisis AI selesai. Limit & bunga sudah dihitung.');
   },
 
-  renderRiskCards(dti) {
+  renderRiskCards(dti, limit) {
     const cards = [
-      { label: 'Sangat Aman', desc: 'DTI < 25%. Limit maksimal.', color: 'green', active: dti < 0.25 },
-      { label: 'Aman', desc: 'DTI 25-50%. Moderat.', color: 'yellow', active: dti >= 0.25 && dti < 0.5 },
-      { label: 'Berisiko', desc: 'DTI > 50%. Tenor pendek.', color: 'red', active: dti >= 0.5 }
+      { label: 'Sangat Aman', desc: 'DTI < 20%. Bunga preferensial 9-10%.', color: 'green', active: dti < 0.2 },
+      { label: 'Aman', desc: 'DTI 20-40%. Bunga normal 10-13%.', color: 'yellow', active: dti >= 0.2 && dti < 0.4 },
+      { label: 'Moderat', desc: 'DTI 40-50%. Bunga 13-15%.', color: 'orange', active: dti >= 0.4 && dti < 0.5 },
+      { label: 'Berisiko', desc: 'DTI > 50%. Bunga 15-16% atau ditolak.', color: 'red', active: dti >= 0.5 }
     ];
     return cards.map(c => `
-      <div class="p-3 rounded-lg border-2 ${c.active ? (c.color === 'red' ? 'border-red-300 bg-red-50' : c.color === 'yellow' ? 'border-yellow-300 bg-yellow-50' : 'border-green-300 bg-green-50 ring-2 ring-offset-2 ring-finOrange') : 'border-gray-200 opacity-50'} mb-2">
+      <div class="p-3 rounded-lg border-2 ${c.active ? (
+        c.color === 'red' ? 'border-red-300 bg-red-50' : 
+        c.color === 'orange' ? 'border-orange-300 bg-orange-50' :
+        c.color === 'yellow' ? 'border-yellow-300 bg-yellow-50' : 
+        'border-green-300 bg-green-50 ring-2 ring-offset-2 ring-finOrange'
+      ) : 'border-gray-200 opacity-50'} mb-2">
         <div class="flex justify-between items-center">
-          <span class="font-bold text-sm ${c.color === 'red' ? 'text-red-600' : c.color === 'yellow' ? 'text-yellow-600' : 'text-green-600'}">${c.label}</span>
+          <span class="font-bold text-sm ${
+            c.color === 'red' ? 'text-red-600' : 
+            c.color === 'orange' ? 'text-orange-600' :
+            c.color === 'yellow' ? 'text-yellow-600' : 
+            'text-green-600'
+          }">${c.label}</span>
           ${c.active ? '<i class="fas fa-check-circle text-finOrange"></i>' : ''}
         </div>
         <p class="text-xs text-gray-600 mt-1">${c.desc}</p>
@@ -959,9 +1203,9 @@ const AIEngine = {
 const Chatbot = {
   matrix: {
     'bayar': 'Anda dapat membayar melalui Dashboard atau aktifkan AstraPay Auto-Debit.',
-    'bunga': 'Suku bunga FINATRA mulai 0.89%/bulan flat.',
+    'bunga': 'Suku bunga FINATRA 9-16% per tahun, tergantung lokasi, agunan, dan profil risiko.',
     'telat': 'Denda H+1: Rp 50.000, H+3: Rp 150.000.',
-    'limit': 'Limit ditentukan berdasarkan DTI, agunan, lokasi, dan SLIK OJK.',
+    'limit': 'Limit = 70% dari nilai agunan Anda.',
     'kontak': 'Hubungi CS 24/7: 0800-123-4567',
     'ocr': 'OCR memverifikasi KTP/KK/BPKB otomatis.',
     'astrapay': 'AstraPay Auto-Debit memotong cicilan otomatis.',

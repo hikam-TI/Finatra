@@ -129,7 +129,7 @@
         <div class="p-4 border-t border-gray-100">
           <div class="bg-gradient-to-r from-finOrange/10 to-finPeach/20 p-3 rounded-lg text-xs text-finDeep/80">
             <p class="font-semibold mb-1">Versi Aplikasi</p>
-            <p>v2.0.0 • Production Ready</p>
+            <p>v3.0.0 • Production Ready</p>
           </div>
         </div>
       </aside>
@@ -230,6 +230,85 @@
     <p class="text-xs text-gray-400 mt-1" id="paid-info">Dari 0 angsuran</p>
   </div>
 </div>
+
+            <!-- ✅ BARU: Section Pembayaran Angsuran -->
+            <div class="card-skeu p-6 rounded-2xl reveal">
+              <div class="flex justify-between items-center mb-4">
+                <h4 class="font-semibold text-finDeep flex items-center gap-2">
+                  <i class="fas fa-credit-card text-finOrange"></i> Pembayaran Angsuran
+                </h4>
+                <span class="text-xs bg-gray-100 text-gray-600 px-3 py-1 rounded-full" id="payment-status-badge">
+                  Belum ada tagihan
+                </span>
+              </div>
+              
+              <div id="payment-info" class="bg-finPeach/10 rounded-xl p-4 mb-4">
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-center">
+                  <div>
+                    <p class="text-[10px] text-gray-500 uppercase">Angsuran ke-</p>
+                    <p class="text-xl font-bold text-finDeep" id="current-installment-num">-</p>
+                  </div>
+                  <div>
+                    <p class="text-[10px] text-gray-500 uppercase">Jatuh Tempo</p>
+                    <p class="text-sm font-bold text-finDeep" id="current-due-date">-</p>
+                  </div>
+                  <div>
+                    <p class="text-[10px] text-gray-500 uppercase">Total Tagihan</p>
+                    <p class="text-xl font-bold text-finOrange" id="current-bill-amount">-</p>
+                  </div>
+                  <div>
+                    <p class="text-[10px] text-gray-500 uppercase">Sisa Hari</p>
+                    <p class="text-xl font-bold text-finDeep" id="days-remaining">-</p>
+                  </div>
+                </div>
+              </div>
+
+              <div id="payment-methods" class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                <label class="flex flex-col items-center gap-2 p-3 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-finOrange transition-colors payment-method-label">
+                  <input type="radio" name="payment-method" value="astrapay" checked class="accent-finOrange">
+                  <i class="fas fa-wallet text-2xl text-finOrange"></i>
+                  <span class="text-xs font-semibold">AstraPay</span>
+                  <span class="text-[10px] text-gray-500">Auto-debit</span>
+                </label>
+                <label class="flex flex-col items-center gap-2 p-3 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-finOrange transition-colors payment-method-label">
+                  <input type="radio" name="payment-method" value="transfer" class="accent-finOrange">
+                  <i class="fas fa-university text-2xl text-finOrange"></i>
+                  <span class="text-xs font-semibold">Transfer Bank</span>
+                  <span class="text-[10px] text-gray-500">BCA/Mandiri/BNI</span>
+                </label>
+                <label class="flex flex-col items-center gap-2 p-3 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-finOrange transition-colors payment-method-label">
+                  <input type="radio" name="payment-method" value="va" class="accent-finOrange">
+                  <i class="fas fa-barcode text-2xl text-finOrange"></i>
+                  <span class="text-xs font-semibold">Virtual Account</span>
+                  <span class="text-[10px] text-gray-500">Semua bank</span>
+                </label>
+                <label class="flex flex-col items-center gap-2 p-3 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-finOrange transition-colors payment-method-label">
+                  <input type="radio" name="payment-method" value="minimarket" class="accent-finOrange">
+                  <i class="fas fa-store text-2xl text-finOrange"></i>
+                  <span class="text-xs font-semibold">Minimarket</span>
+                  <span class="text-[10px] text-gray-500">Alfamart/Indomaret</span>
+                </label>
+              </div>
+
+              <button id="btn-pay-now" class="btn-primary w-full py-3 rounded-lg font-semibold shadow-md inline-flex items-center justify-center gap-2">
+                <i class="fas fa-paper-plane"></i>
+                <span>Bayar Sekarang</span>
+              </button>
+              
+              <p class="text-xs text-gray-500 mt-3 italic">
+                <i class="fas fa-shield-alt mr-1"></i> Pembayaran aman & terenkripsi. Bukti bayar otomatis tersimpan.
+              </p>
+            </div>
+
+            <!-- ✅ BARU: Riwayat Pembayaran User -->
+            <div class="card-skeu p-6 rounded-2xl reveal">
+              <h4 class="font-semibold text-finDeep mb-4 flex items-center gap-2">
+                <i class="fas fa-history text-finOrange"></i> Riwayat Pembayaran Saya
+              </h4>
+              <div id="my-payment-history" class="space-y-2">
+                <p class="text-sm text-gray-400 text-center py-4">Belum ada riwayat pembayaran</p>
+              </div>
+            </div>
 
             <!-- Progres Pembayaran -->
                 <div class="card-skeu p-6 rounded-2xl reveal">
@@ -466,6 +545,28 @@
                       <label class="block text-xs font-medium text-gray-600 mb-1">Kemampuan Bayar/Bulan</label>
                       <input type="number" id="capability" placeholder="3000000" class="input-skeu w-full px-3 py-2 rounded-lg border">
                     </div>
+                  </div>
+
+                  <!-- ✅ BARU: Nilai Agunan -->
+                  <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">
+                      <i class="fas fa-gem text-finOrange mr-1"></i> Nilai Agunan (Rp)
+                    </label>
+                    <input type="number" id="collateral-value" placeholder="500000000" class="input-skeu w-full px-3 py-2 rounded-lg border">
+                    <p class="text-[10px] text-gray-400 mt-1">
+                      <i class="fas fa-info-circle"></i> Limit maksimal = 70% dari nilai agunan
+                    </p>
+                  </div>
+
+                  <!-- ✅ BARU: Status Usaha -->
+                  <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Status Usaha</label>
+                    <select id="business-type" class="input-skeu w-full px-3 py-2 rounded-lg border bg-white">
+                      <option value="personal">Pribadi / Perorangan</option>
+                      <option value="umkm">UMKM (< 5 karyawan)</option>
+                      <option value="menengah">Usaha Menengah (5-50 karyawan)</option>
+                      <option value="besar">Perusahaan Besar (> 50 karyawan)</option>
+                    </select>
                   </div>
 
                   <button type="submit" class="btn-primary w-full py-3 rounded-lg font-medium mt-2 shadow-md">

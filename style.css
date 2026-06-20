@@ -1,5 +1,5 @@
 /* =========================================
-   FINATRA TRACKER v2.0 - PRODUCTION STYLES
+   FINATRA TRACKER v3.0 - PRODUCTION STYLES
    ========================================= */
 
 :root {
@@ -14,7 +14,9 @@ body { font-family: 'Inter', system-ui, sans-serif; background: #FFFDF1; }
 ::-webkit-scrollbar-thumb { background: #E5E7EB; border-radius: 99px; }
 ::-webkit-scrollbar-thumb:hover { background: #CBD5E1; }
 
-/* Skeuomorphic Components */
+/* =========================================
+   Skeuomorphic Components
+   ========================================= */
 .card-skeu {
   background: linear-gradient(145deg, #ffffff, #f5f2ec);
   box-shadow: var(--shadow-skeu);
@@ -41,8 +43,15 @@ body { font-family: 'Inter', system-ui, sans-serif; background: #FFFDF1; }
 }
 .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 12px rgba(255, 123, 0, 0.35); }
 .btn-primary:active { transform: translateY(0); }
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
 
-/* Navigation */
+/* =========================================
+   Navigation
+   ========================================= */
 .nav-item.active {
   background: linear-gradient(135deg, rgba(255, 150, 68, 0.1), rgba(255, 206, 153, 0.2));
   color: #FF7B00;
@@ -51,7 +60,9 @@ body { font-family: 'Inter', system-ui, sans-serif; background: #FFFDF1; }
 }
 .nav-item:hover:not(.active) { background: rgba(86, 47, 0, 0.03); }
 
-/* Animations */
+/* =========================================
+   Animations
+   ========================================= */
 @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes slideDown { from { transform: translateY(-20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
@@ -60,7 +71,9 @@ body { font-family: 'Inter', system-ui, sans-serif; background: #FFFDF1; }
 .reveal { opacity: 0; transform: translateY(30px); transition: all 0.6s cubic-bezier(0.5, 0, 0, 1); }
 .reveal.active { opacity: 1; transform: translateY(0); }
 
-/* Table */
+/* =========================================
+   Table
+   ========================================= */
 table tbody tr { transition: background-color 0.2s; }
 table tbody tr:hover { background-color: rgba(255, 206, 153, 0.15); }
 .status-badge { padding: 0.25rem 0.5rem; border-radius: 99px; font-size: 0.7rem; font-weight: 600; }
@@ -68,10 +81,14 @@ table tbody tr:hover { background-color: rgba(255, 206, 153, 0.15); }
 .status-pending { background: #FEF3C7; color: #92400E; }
 .status-failed { background: #FEE2E2; color: #991B1B; }
 
-/* Chat */
+/* =========================================
+   Chat
+   ========================================= */
 .chat-user { background: linear-gradient(135deg, #FF9644, #FF7B00) !important; color: white !important; border-radius: 1.2rem 1.2rem 0.2rem 1.2rem !important; margin-left: auto; }
 
-/* Toast */
+/* =========================================
+   Toast
+   ========================================= */
 .toast {
   pointer-events: auto;
   background: white;
@@ -88,7 +105,9 @@ table tbody tr:hover { background-color: rgba(255, 206, 153, 0.15); }
 .toast.error { border-left-color: #EF4444; }
 @keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 
-/* OCR Upload Area */
+/* =========================================
+   OCR Upload Area
+   ========================================= */
 .ocr-upload-area { transition: var(--transition-base); }
 .ocr-upload-area:hover { transform: translateY(-2px); }
 .ocr-upload-area.uploaded {
@@ -97,7 +116,9 @@ table tbody tr:hover { background-color: rgba(255, 206, 153, 0.15); }
   border-style: solid !important;
 }
 
-/* EWS Timeline */
+/* =========================================
+   EWS Timeline
+   ========================================= */
 .ews-item {
   position: relative;
   padding-left: 3rem;
@@ -118,7 +139,9 @@ table tbody tr:hover { background-color: rgba(255, 206, 153, 0.15); }
 .ews-item.done::before { background: #10B981; box-shadow: 0 0 0 2px #10B981; }
 .ews-item.danger::before { background: #EF4444; box-shadow: 0 0 0 2px #EF4444, 0 0 0 6px rgba(239, 68, 68, 0.2); }
 
-/* Calendar */
+/* =========================================
+   Calendar
+   ========================================= */
 .cal-day {
   aspect-ratio: 1;
   display: flex;
@@ -145,7 +168,9 @@ table tbody tr:hover { background-color: rgba(255, 206, 153, 0.15); }
 .cal-day.paid { background: #D1FAE5; color: #065F46; }
 .cal-day.other-month { opacity: 0.3; }
 
-/* Payment Progress Grid */
+/* =========================================
+   Payment Progress Grid
+   ========================================= */
 .payment-block {
   aspect-ratio: 1;
   border-radius: 0.375rem;
@@ -163,7 +188,9 @@ table tbody tr:hover { background-color: rgba(255, 206, 153, 0.15); }
 .payment-block.upcoming { background: #E5E7EB; color: #6B7280; }
 @keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(255, 123, 0, 0.4); } 50% { box-shadow: 0 0 0 8px rgba(255, 123, 0, 0); } }
 
-/* Testimonial Card */
+/* =========================================
+   Testimonial Card
+   ========================================= */
 .testimonial-card {
   transition: var(--transition-base);
 }
@@ -172,9 +199,221 @@ table tbody tr:hover { background-color: rgba(255, 206, 153, 0.15); }
   box-shadow: 0 12px 24px rgba(86, 47, 0, 0.1);
 }
 
-/* Responsive */
+/* =========================================
+   ✅ BARU: Payment System Styles
+   ========================================= */
+
+/* Payment Method Selection */
+.payment-method-label {
+  transition: var(--transition-base);
+  position: relative;
+}
+
+.payment-method-label:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(255, 123, 0, 0.15);
+}
+
+.payment-method-label:has(input:checked) {
+  border-color: #FF7B00 !important;
+  background: rgba(255, 206, 153, 0.1);
+  box-shadow: 0 0 0 3px rgba(255, 123, 0, 0.1);
+}
+
+.payment-method-label:has(input:checked)::after {
+  content: '\f00c';
+  font-family: 'Font Awesome 6 Free';
+  font-weight: 900;
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 20px;
+  height: 20px;
+  background: #FF7B00;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+}
+
+/* Payment Info Section */
+#payment-info {
+  transition: all 0.3s ease;
+}
+
+#payment-info:hover {
+  transform: scale(1.01);
+}
+
+/* Payment Status Badge */
+#payment-status-badge {
+  transition: var(--transition-base);
+}
+
+/* Payment History Item */
+#my-payment-history > div {
+  transition: var(--transition-base);
+}
+
+#my-payment-history > div:hover {
+  transform: translateX(4px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+/* Bill Amount Highlight */
+#current-bill-amount {
+  transition: var(--transition-base);
+}
+
+#current-bill-amount:hover {
+  transform: scale(1.05);
+}
+
+/* Days Remaining Color Transitions */
+#days-remaining {
+  transition: color 0.3s ease;
+}
+
+/* Pay Now Button States */
+#btn-pay-now {
+  transition: var(--transition-base);
+}
+
+#btn-pay-now:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(255, 123, 0, 0.4);
+}
+
+#btn-pay-now:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+/* =========================================
+   ✅ BARU: AI Matching Enhanced Styles
+   ========================================= */
+
+/* Collateral Value Input Highlight */
+#collateral-value:focus {
+  box-shadow: 0 0 0 3px rgba(255, 123, 0, 0.2);
+  border-color: #FF7B00;
+}
+
+/* Business Type Select */
+#business-type:focus {
+  box-shadow: 0 0 0 3px rgba(255, 123, 0, 0.2);
+  border-color: #FF7B00;
+}
+
+/* Risk Category Cards */
+.card-skeu .border-green-300,
+.card-skeu .border-yellow-300,
+.card-skeu .border-orange-300,
+.card-skeu .border-red-300 {
+  transition: var(--transition-base);
+}
+
+.card-skeu .border-green-300:hover,
+.card-skeu .border-yellow-300:hover,
+.card-skeu .border-orange-300:hover,
+.card-skeu .border-red-300:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Tenor Recommendation Cards */
+.card-skeu .border-green-300,
+.card-skeu .border-red-300 {
+  transition: var(--transition-base);
+}
+
+.card-skeu .border-green-300:hover {
+  background: #D1FAE5 !important;
+}
+
+.card-skeu .border-red-300:hover {
+  background: #FEE2E2 !important;
+}
+
+/* =========================================
+   ✅ BARU: Loading States
+   ========================================= */
+
+.loading-spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Success Animation */
+@keyframes successPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+.success-animation {
+  animation: successPulse 0.5s ease-out;
+}
+
+/* =========================================
+   ✅ BARU: Progress Indicators
+   ========================================= */
+
+.progress-bar-animated {
+  animation: progressFill 1s ease-out forwards;
+}
+
+@keyframes progressFill {
+  from { width: 0%; }
+}
+
+/* =========================================
+   Responsive
+   ========================================= */
 @media (max-width: 1023px) {
   #app-shell { flex-direction: column; }
   #sidebar { width: 80%; max-width: 300px; height: 100vh; }
   main { margin-left: 0; }
+  
+  /* Mobile Payment Methods */
+  #payment-methods {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+@media (max-width: 640px) {
+  /* Extra small devices */
+  .payment-method-label {
+    padding: 0.5rem !important;
+  }
+  
+  .payment-method-label i {
+    font-size: 1.25rem !important;
+  }
+  
+  .payment-method-label span {
+    font-size: 0.65rem !important;
+  }
+}
+
+/* =========================================
+   Print Styles
+   ========================================= */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  
+  .card-skeu {
+    box-shadow: none !important;
+    border: 1px solid #ddd !important;
+  }
+  
+  body {
+    background: white !important;
+  }
 }
