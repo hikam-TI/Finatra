@@ -75,15 +75,76 @@ class DatabaseService {
 }
 
 /**
- * Helper untuk generate avatar URL (digunakan saat register)
+ * Generate avatar URL untuk disimpan di database
+ * Menggunakan inisial nama yang sama dengan getAvatarUrl()
  */
 _generateAvatarUrl(name, id) {
-  const seed = name || id || 'default';
-  const styles = ['adventurer', 'bottts', 'lorelei', 'avataaars', 'big-ears', 'pixel-art'];
-  const styleIdx = Math.abs(this._hashCode(seed)) % styles.length;
-  const style = styles[styleIdx];
-  const bgColors = 'ffce99,ff9644,ffd4a3,ffb366';
-  return `https://api.dicebear.com/7.1/${style}/svg?seed=${encodeURIComponent(seed)}&backgroundColor=${bgColors}`;
+  const nameStr = name || id || 'User';
+  const seed = nameStr.toLowerCase().trim();
+  
+  // Ambil inisial
+  const words = nameStr.trim().split(/\s+/);
+  let initials = '';
+  if (words.length >= 2) {
+    initials = words[0].charAt(0).toUpperCase() + words[1].charAt(0).toUpperCase();
+  } else {
+    initials = words[0].charAt(0).toUpperCase();
+  }
+  
+  // Warna background
+  const colors = [
+    { bg: '#FF7B00', text: '#FFFFFF' },
+    { bg: '#FF9644', text: '#FFFFFF' },
+    { bg: '#800000', text: '#FFFFFF' },
+    { bg: '#562F00', text: '#FFFFFF' },
+    { bg: '#FFCE99', text: '#562F00' },
+    { bg: '#E67E22', text: '#FFFFFF' },
+    { bg: '#D35400', text: '#FFFFFF' },
+    { bg: '#F39C12', text: '#FFFFFF' }
+  ];
+  
+  const colorIdx = Math.abs(this._hashCode(seed)) % colors.length;
+  const color = colors[colorIdx];
+  
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+    <defs>
+      <linearGradient id="bg_${seed.replace(/[^a-z0-9]/g, '')}" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" style="stop-color:${color.bg};stop-opacity:1" />
+        <stop offset="100%" style="stop-color:${this._lightenColor(color.bg, 15)};stop-opacity:1" />
+      </linearGradient>
+    </defs>
+    <circle cx="50" cy="50" r="50" fill="url(#bg_${seed.replace(/[^a-z0-9]/g, '')})" />
+    <text x="50" y="50" font-size="${initials.length === 1 ? '50' : '40'}" font-family="Arial, sans-serif" font-weight="bold" fill="${color.text}" text-anchor="middle" dominant-baseline="central">${initials}</text>
+  </svg>`;
+  
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
+/**
+ * Hash function untuk DatabaseService
+ */
+_hashCode(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash) + str.charCodeAt(i);
+    hash |= 0;
+  }
+  return hash;
+}
+
+/**
+ * Lighten color untuk gradient
+ */
+_lightenColor(color, percent) {
+  const num = parseInt(color.replace('#', ''), 16);
+  const amt = Math.round(2.55 * percent);
+  const R = (num >> 16) + amt;
+  const G = (num >> 8 & 0x00FF) + amt;
+  const B = (num & 0x0000FF) + amt;
+  return '#' + (0x1000000 + (R < 255 ? R < 1 ? 0 : R : 255) * 0x10000 +
+    (G < 255 ? G < 1 ? 0 : G : 255) * 0x100 +
+    (B < 255 ? B < 1 ? 0 : B : 255))
+    .toString(16).slice(1);
 }
 
 /**
@@ -836,42 +897,69 @@ formatDate(dateInput) {
     setTimeout(() => el.remove(), 3500);
   },
   /**
- * Generate avatar URL unik per user dengan fallback SVG inline
- * - Setiap nama akan menghasilkan avatar yang berbeda & konsisten
- * - 6 style berbeda dari DiceBear API
- * - Fallback ke SVG inline jika API gagal
+ * Generate avatar SVG dengan inisial nama
+ * - Profesional dan clean
+ * - Setiap nama menghasilkan inisial & warna unik
+ * - Contoh: "Budi Santoso" → "BS", "Ahmad" → "A"
  */
 getAvatarUrl(user) {
-  const seed = user.name || user.phone || user.id || 'default';
-  const styles = [
-    'adventurer',
-    'bottts', 
-    'lorelei',
-    'avataaars',
-    'big-ears',
-    'pixel-art'
+  const name = user.name || user.phone || 'User';
+  const seed = name.toLowerCase().trim();
+  
+  // Ambil inisial (maksimal 2 huruf)
+  const initials = this._getInitials(name);
+  
+  // Warna background unik berdasarkan hash nama
+  const colors = [
+    { bg: '#FF7B00', text: '#FFFFFF' },  // Orange FINATRA
+    { bg: '#FF9644', text: '#FFFFFF' },  // Bright orange
+    { bg: '#800000', text: '#FFFFFF' },  // Maroon
+    { bg: '#562F00', text: '#FFFFFF' },  // Deep brown
+    { bg: '#FFCE99', text: '#562F00' },  // Peach dengan text gelap
+    { bg: '#E67E22', text: '#FFFFFF' },  // Dark orange
+    { bg: '#D35400', text: '#FFFFFF' },  // Pumpkin
+    { bg: '#F39C12', text: '#FFFFFF' }   // Golden
   ];
   
-  const styleIdx = Math.abs(this._hashCode(seed)) % styles.length;
-  const style = styles[styleIdx];
-  const bgColors = 'ffce99,ff9644,ffd4a3,ffb366';
+  const colorIdx = Math.abs(this._hashCode(seed)) % colors.length;
+  const color = colors[colorIdx];
   
-  return `https://api.dicebear.com/7.1/${style}/svg?seed=${encodeURIComponent(seed)}&backgroundColor=${bgColors}`;
+  // Generate SVG dengan inisial
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+    <defs>
+      <linearGradient id="bg_${seed.replace(/[^a-z0-9]/g, '')}" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" style="stop-color:${color.bg};stop-opacity:1" />
+        <stop offset="100%" style="stop-color:${this._lightenColor(color.bg, 15)};stop-opacity:1" />
+      </linearGradient>
+    </defs>
+    <circle cx="50" cy="50" r="50" fill="url(#bg_${seed.replace(/[^a-z0-9]/g, '')})" />
+    <text x="50" y="50" font-size="${initials.length === 1 ? '50' : '40'}" font-family="Arial, sans-serif" font-weight="bold" fill="${color.text}" text-anchor="middle" dominant-baseline="central">${initials}</text>
+  </svg>`;
+  
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 },
 
 /**
- * Generate inline SVG avatar sebagai fallback
- * - Menggunakan inisial nama dengan warna brand FINATRA
- * - Selalu berhasil di-render tanpa perlu API external
+ * Ambil inisial dari nama (maksimal 2 huruf)
+ * - "Budi Santoso" → "BS"
+ * - "Ahmad" → "A"
+ * - "Siti Rahayu Dewi" → "SR"
  */
-getFallbackAvatar(user) {
-  const name = user.name || user.phone || 'U';
-  const initials = name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
-  const colors = ['#FF7B00', '#FF9644', '#FFCE99', '#800000', '#562F00'];
-  const colorIdx = Math.abs(this._hashCode(name)) % colors.length;
-  const bgColor = colors[colorIdx];
+_getInitials(name) {
+  if (!name) return 'U';
   
-  return `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect fill="${bgColor}" width="100" height="100" rx="50"/><text x="50" y="65" font-size="40" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-weight="bold">${initials}</text></svg>`;
+  const words = name.trim().split(/\s+/);
+  let initials = '';
+  
+  if (words.length >= 2) {
+    // Ambil huruf pertama dari 2 kata pertama
+    initials = words[0].charAt(0).toUpperCase() + words[1].charAt(0).toUpperCase();
+  } else {
+    // Hanya 1 kata, ambil 1 huruf pertama
+    initials = words[0].charAt(0).toUpperCase();
+  }
+  
+  return initials;
 },
 
 /**
@@ -886,18 +974,20 @@ _hashCode(str) {
   return hash;
 },
 
-  /**
-   * Hash function sederhana untuk menghasilkan angka konsisten dari string
-   * Digunakan untuk memilih style avatar yang konsisten per user
-   */
-  _hashCode(str) {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-      hash = ((hash << 5) - hash) + str.charCodeAt(i);
-      hash |= 0; // Convert to 32bit integer
-    }
-    return hash;
-  },
+/**
+ * Lighten color untuk gradient effect
+ */
+_lightenColor(color, percent) {
+  const num = parseInt(color.replace('#', ''), 16);
+  const amt = Math.round(2.55 * percent);
+  const R = (num >> 16) + amt;
+  const G = (num >> 8 & 0x00FF) + amt;
+  const B = (num & 0x0000FF) + amt;
+  return '#' + (0x1000000 + (R < 255 ? R < 1 ? 0 : R : 255) * 0x10000 +
+    (G < 255 ? G < 1 ? 0 : G : 255) * 0x100 +
+    (B < 255 ? B < 1 ? 0 : B : 255))
+    .toString(16).slice(1);
+},
 
   /**
    * Format tanggal bergabung ke format Indonesia yang mudah dibaca
