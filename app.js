@@ -1,13 +1,24 @@
 /**
- * FINATRA TRACKER v2.2 - Production Architecture
- * ===============================================
- * FIX LOG v2.2:
- * - Avatar: Inline SVG dengan inisial nama (selalu muncul, tanpa API external)
+ * FINATRA TRACKER v2.3 - FINAL PRODUCTION
+ * ========================================
+ * FIX v2.3:
+ * - Avatar: Inline SVG dengan inisial nama (selalu muncul)
+ * - UUID: Fallback untuk crypto.randomUUID()
  * - Auth: Nama dari database saat login
  * - Dashboard: Reset ke 0 untuk akun baru
- * - Payment Progress: Clickable dengan modal detail
- * - Application Progress: Dinamis berdasarkan data user
+ * - Payment: Clickable dengan modal detail
  */
+
+// ==========================================
+// UUID GENERATOR (Fallback untuk HTTP)
+// ==========================================
+function generateUUID() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
 
 // ==========================================
 // 1. DATABASE SERVICE
@@ -16,95 +27,103 @@ class DatabaseService {
   constructor(mode = 'dev') {
     this.mode = mode;
     this.PREFIX = 'FINATRA_';
-    if (mode === 'prod') {
-      console.info('[DB] Production Mode: Ganti dengan Supabase/Firebase SDK.');
-    }
   }
 
   _getStore(key) {
-    if (this.mode === 'prod') throw new Error('Use production client');
     const data = localStorage.getItem(this.PREFIX + key);
     return data ? JSON.parse(data) : null;
   }
+
   _setStore(key, value) {
-    if (this.mode === 'prod') throw new Error('Use production client');
     localStorage.setItem(this.PREFIX + key, JSON.stringify(value));
   }
 
   async login(phone, pin) {
-    if (this.mode === 'dev') {
-      const users = this._getStore('users') || {};
-      const user = Object.values(users).find(u => u.phone === phone && u.pin === pin);
-      if (!user) return { success: false, error: 'Nomor atau PIN salah.' };
-      
-      const token = btoa(JSON.stringify({ phone, ts: Date.now() }));
-      const session = { token, user };
-      this._setStore('session', session);
-      
-      return { success: true, data: user };
-    }
-    return { success: true, data: { name: 'User Prod' } };
+    const users = this._getStore('users') || {};
+    const user = Object.values(users).find(u => u.phone === phone && u.pin === pin);
+    if (!user) return { success: false, error: 'Nomor atau PIN salah.' };
+    
+    const token = btoa(JSON.stringify({ phone, ts: Date.now() }));
+    const session = { token, user };
+    this._setStore('session', session);
+    
+    return { success: true, data: user };
   }
 
   async register(name, phone, pin) {
-    if (this.mode === 'dev') {
-      let users = this._getStore('users') || {};
-      if (Object.values(users).find(u => u.phone === phone)) {
-        return { success: false, error: 'Nomor sudah terdaftar.' };
-      }
-      const id = crypto.randomUUID();
-      const now = new Date().toISOString();
-      
-      // ✅ Generate avatar inline SVG (bukan DiceBear)
-      const avatarUrl = this._generateAvatarUrl(name, id);
-      
-      users[id] = { 
-        id, 
-        name: name, 
-        phone, 
-        pin, 
-        avatarUrl,
-        createdAt: now,
-        applications: [],
-        loans: []
-      };
-      this._setStore('users', users);
-      return { success: true };
+    let users = this._getStore('users') || {};
+    if (Object.values(users).find(u => u.phone === phone)) {
+      return { success: false, error: 'Nomor sudah terdaftar.' };
     }
+    
+    // ✅ Gunakan generateUUID() bukan crypto.randomUUID()
+    const id = generateUUID();
+    const now = new Date().toISOString();
+    const avatarUrl = this._generateAvatarUrl(name, id);
+    
+    users[id] = { 
+      id, 
+      name: name, 
+      phone, 
+      pin, 
+      avatarUrl,
+      createdAt: now,
+      applications: [],
+      loans: []
+    };
+    this._setStore('users', users);
     return { success: true };
   }
 
   /**
-   * Generate avatar inline SVG dengan inisial nama
+   * ✅ FIX: Generate avatar inline SVG dengan inisial nama
+   * Method ini sekarang punya _getInitials sendiri
    */
   _generateAvatarUrl(name, id) {
-  const nameStr = name || id || 'User';
-  const initials = this._getInitials(nameStr);
-  
-  const colors = [
-    { bg: '#FF7B00', text: '#FFFFFF' },
-    { bg: '#FF9644', text: '#FFFFFF' },
-    { bg: '#800000', text: '#FFFFFF' },
-    { bg: '#FFCE99', text: '#562F00' }
-  ];
-  
-  const hash = this._hashCode(nameStr.toLowerCase());
-  const color = colors[Math.abs(hash) % colors.length];
-  const fontSize = initials.length === 1 ? '45' : '35';
-  
-  const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">
+    const nameStr = name || id || 'User';
+    const initials = this._getInitials(nameStr);
+    
+    const colors = [
+      { bg: '#FF7B00', text: '#FFFFFF' },
+      { bg: '#FF9644', text: '#FFFFFF' },
+      { bg: '#800000', text: '#FFFFFF' },
+      { bg: '#FFCE99', text: '#562F00' },
+      { bg: '#E67E22', text: '#FFFFFF' },
+      { bg: '#D35400', text: '#FFFFFF' }
+    ];
+    
+    const hash = this._hashCode(nameStr.toLowerCase());
+    const color = colors[Math.abs(hash) % colors.length];
+    const fontSize = initials.length === 1 ? '45' : '35';
+    
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">
       <rect width="100" height="100" fill="${color.bg}" rx="50"/>
       <text x="50" y="50" font-family="Arial, sans-serif" font-weight="bold" 
             font-size="${fontSize}" fill="${color.text}" 
             text-anchor="middle" dominant-baseline="central">
         ${initials}
       </text>
-    </svg>
-  `;
-  
-  return `data:image/svg+xml;base64,${btoa(svg)}`;
-}
+    </svg>`;
+    
+    return `data:image/svg+xml;base64,${btoa(svg)}`;
+  }
+
+  /**
+   * ✅ FIX: Method _getInitials sekarang ada di DatabaseService
+   */
+  _getInitials(name) {
+    if (!name) return 'U';
+    const words = name.trim().split(/\s+/);
+    let initials = '';
+    if (words.length >= 2) {
+      initials = words[0].charAt(0).toUpperCase() + words[1].charAt(0).toUpperCase();
+    } else if (words[0].length > 0) {
+      initials = words[0].charAt(0).toUpperCase();
+    } else {
+      initials = 'U';
+    }
+    return initials;
+  }
 
   _hashCode(str) {
     let hash = 0;
@@ -115,28 +134,11 @@ class DatabaseService {
     return hash;
   }
 
-  _lightenColor(color, percent) {
-    const num = parseInt(color.replace('#', ''), 16);
-    const amt = Math.round(2.55 * percent);
-    const R = (num >> 16) + amt;
-    const G = (num >> 8 & 0x00FF) + amt;
-    const B = (num & 0x0000FF) + amt;
-    return '#' + (0x1000000 + (R < 255 ? R < 1 ? 0 : R : 255) * 0x10000 +
-      (G < 255 ? G < 1 ? 0 : G : 255) * 0x100 +
-      (B < 255 ? B < 1 ? 0 : B : 255))
-      .toString(16).slice(1);
-  }
-
   getSession() { return this._getStore('session'); }
   clearSession() { localStorage.removeItem(this.PREFIX + 'session'); }
 
   async getTransactions() {
-    if (this.mode === 'dev') return this._getStore('transactions') || this._seedTransactions();
-    return [];
-  }
-
-  async savePreferences(prefs) {
-    if (this.mode === 'dev') this._setStore('preferences', prefs);
+    return this._getStore('transactions') || this._seedTransactions();
   }
 
   _seedTransactions() {
@@ -169,7 +171,6 @@ const App = {
   },
 
   setupEventListeners() {
-    // ===== AUTH TOGGLE =====
     document.getElementById('auth-toggle').addEventListener('click', (e) => {
       const title = document.getElementById('auth-title');
       const btnText = document.querySelector('.btn-text');
@@ -189,7 +190,6 @@ const App = {
       }
     });
 
-    // ===== AUTH SUBMIT =====
     document.getElementById('auth-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const phone = document.getElementById('phone').value.trim();
@@ -227,29 +227,27 @@ const App = {
           this.toast(loginRes.error, 'error');
         }
       } catch (err) {
-        console.error(err);
-        this.toast('Gagal terhubung ke server.', 'error');
+        console.error('Auth error:', err);
+        this.toast('Gagal terhubung ke server: ' + err.message, 'error');
       } finally {
         btn.disabled = false;
         btn.innerHTML = originalHTML;
       }
     });
 
-    // ===== ROUTING =====
     document.querySelectorAll('.nav-item').forEach(btn => {
       btn.addEventListener('click', () => this.navigate(btn.dataset.route));
     });
 
-    // ===== SIDEBAR TOGGLE =====
     document.getElementById('sidebar-toggle').addEventListener('click', () => {
       document.getElementById('sidebar').classList.toggle('-translate-x-full');
     });
 
-    // ===== ASTRAPAY AUTO-DEBIT =====
     document.getElementById('autopay-toggle').addEventListener('change', (e) => {
       this.state.autopay = e.target.checked;
       this.toast(this.state.autopay ? `Auto-Debit AKTIF (${this.state.frequency})` : 'Auto-Debit dinonaktifkan');
     });
+
     document.querySelectorAll('input[name="frequency"]').forEach(radio => {
       radio.addEventListener('change', (e) => {
         this.state.frequency = e.target.value;
@@ -262,7 +260,6 @@ const App = {
       });
     });
 
-    // ===== CHATBOT =====
     document.getElementById('chat-form').addEventListener('submit', (e) => {
       e.preventDefault();
       const input = document.getElementById('chat-input');
@@ -271,17 +268,14 @@ const App = {
       input.value = '';
     });
 
-    // ===== AI MATCHING =====
     document.getElementById('ai-form').addEventListener('submit', (e) => {
       e.preventDefault();
       this.aiEngine.evaluate();
     });
 
-    // ===== TABLE FILTER =====
     document.getElementById('search-tx').addEventListener('input', (e) => this.renderTransactions(null, e.target.value));
     document.getElementById('filter-date').addEventListener('change', (e) => this.renderTransactions(e.target.value));
 
-    // ===== LOGOUT =====
     document.getElementById('logout-btn').addEventListener('click', () => { 
       if (confirm('Yakin ingin keluar?')) {
         DB.clearSession(); 
@@ -289,14 +283,12 @@ const App = {
       }
     });
 
-    // ===== TESTIMONIAL FORM =====
     document.getElementById('testimonial-form').addEventListener('submit', (e) => {
       e.preventDefault();
       this.toast('Terima kasih! Testimoni Anda akan direview.');
       e.target.reset();
     });
 
-    // ===== STAR RATING =====
     document.querySelectorAll('#testimonial-form .fa-star').forEach(star => {
       star.addEventListener('click', () => {
         const rate = parseInt(star.dataset.rate);
@@ -307,7 +299,6 @@ const App = {
       });
     });
 
-    // ===== BACK TO TOP =====
     window.addEventListener('scroll', () => {
       const btn = document.getElementById('back-to-top');
       if (window.scrollY > 300) { btn.classList.remove('hidden'); btn.classList.add('flex'); }
@@ -315,7 +306,6 @@ const App = {
       btn.onclick = () => window.scrollTo({ top: 0, behavior: 'smooth' });
     });
 
-    // ===== FAQ ACCORDION =====
     document.querySelectorAll('.faq-item').forEach(btn => {
       btn.addEventListener('click', () => {
         const content = btn.querySelector('div:last-child');
@@ -325,7 +315,6 @@ const App = {
       });
     });
 
-    // ===== OCR UPLOAD =====
     document.querySelectorAll('.ocr-upload-area').forEach(area => {
       area.addEventListener('click', () => area.querySelector('.ocr-input').click());
       area.querySelector('.ocr-input').addEventListener('change', (e) => this.ocrService.process(e, area));
@@ -351,7 +340,6 @@ const App = {
     document.getElementById('user-display').textContent = userName;
     document.getElementById('profile-name').textContent = userName;
     
-    // ✅ Avatar langsung dari database atau generate baru (inline SVG, tidak perlu fallback)
     const avatarUrl = user.avatarUrl || this.getAvatarUrl(user);
     
     const profileAvatar = document.getElementById('profile-avatar');
@@ -464,7 +452,7 @@ const App = {
           <i class="fas fa-file-signature text-4xl text-finOrange"></i>
         </div>
         <h4 class="font-semibold text-finDeep text-lg mb-2">Belum Ada Pengajuan Pembiayaan</h4>
-        <p class="text-sm text-gray-500 mb-6">Mulai ajukan pembiayaan untuk mengembangkan usaha Anda. Proses cepat dengan AI Matching.</p>
+        <p class="text-sm text-gray-500 mb-6">Mulai ajukan pembiayaan untuk mengembangkan usaha Anda.</p>
         <button onclick="App.navigate('matching')" class="btn-primary px-6 py-2.5 rounded-lg font-medium shadow-md inline-flex items-center gap-2">
           <i class="fas fa-brain"></i>
           <span>Cek Kemampuan & Ajukan</span>
@@ -497,7 +485,7 @@ const App = {
     container.innerHTML = `
       <div class="flex justify-between items-center mb-4">
         <h4 class="font-semibold text-finDeep flex items-center gap-2">
-          <i class="fas fa-file-signature text-finOrange"></i> Progres Pengajuan Pembiayaan
+          <i class="fas fa-file-signature text-finOrange"></i> Progres Pengajuan
         </h4>
         <span class="text-xs bg-${statusColor}-100 text-${statusColor}-700 px-3 py-1 rounded-full font-semibold">
           ${statusText}
@@ -513,19 +501,13 @@ const App = {
         <div class="flex justify-between mt-2">
           ${steps.map((step) => `
             <div class="flex flex-col items-center">
-              <div class="w-8 h-8 rounded-full ${step.status === 'done' ? 'bg-finOrange text-white' : step.status === 'current' ? 'bg-finOrange text-white animate-pulse' : 'bg-gray-200 text-gray-400'} flex items-center justify-center text-xs transition-all">
+              <div class="w-8 h-8 rounded-full ${step.status === 'done' ? 'bg-finOrange text-white' : step.status === 'current' ? 'bg-finOrange text-white animate-pulse' : 'bg-gray-200 text-gray-400'} flex items-center justify-center text-xs">
                 <i class="fas ${step.status === 'done' ? 'fa-check' : step.icon}"></i>
               </div>
             </div>
           `).join('')}
         </div>
       </div>
-      ${application.amount ? `
-        <p class="text-xs text-gray-500 mt-4">
-          Pengajuan dana sebesar <span class="font-semibold text-finDeep">${this.formatRupiah(application.amount)}</span> 
-          ${application.step === 5 ? `telah disetujui pada ${this.formatDate(application.updatedAt)}` : ''}
-        </p>
-      ` : ''}
     `;
   },
 
@@ -547,7 +529,7 @@ const App = {
     
     const infoDiv = document.createElement('div');
     infoDiv.className = 'col-span-12 text-center mt-3 text-xs text-gray-500';
-    infoDiv.innerHTML = '<i class="fas fa-info-circle mr-1"></i>Klik nomor angsuran untuk melihat detail. Angsuran akan tersedia setelah pencairan pinjaman.';
+    infoDiv.innerHTML = '<i class="fas fa-info-circle mr-1"></i>Klik nomor angsuran untuk detail.';
     grid.appendChild(infoDiv);
   },
 
@@ -576,7 +558,6 @@ const App = {
         title += ' - Lunas';
       } else if (isCurrent) {
         cls = 'current cursor-pointer animate-pulse hover:scale-110';
-        icon = `<span class="text-[10px]">${i}</span>`;
         title += ' - Berjalan';
       } else {
         title += ' - Belum Tersedia';
@@ -597,7 +578,6 @@ const App = {
     
     const amount = loan ? this.formatRupiah(loan.installmentAmount || 2500000) : '-';
     const dueDate = loan ? this.formatDate(new Date(loan.startDate).setMonth(new Date(loan.startDate).getMonth() + installmentNum - 1)) : '-';
-    const paidDate = isPaid ? this.formatDate(new Date()) : '-';
     
     const statusHtml = isPaid 
       ? '<span class="inline-flex items-center gap-1 text-green-600 font-semibold"><i class="fas fa-check-circle"></i> Lunas</span>'
@@ -615,36 +595,24 @@ const App = {
             <i class="fas fa-times"></i>
           </button>
         </div>
-        
         <div class="space-y-4">
           <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
             <span class="text-sm text-gray-600">Status</span>
             ${statusHtml}
           </div>
-          
           <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
             <span class="text-sm text-gray-600">Nominal</span>
             <span class="font-bold text-finDeep">${amount}</span>
           </div>
-          
           <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
             <span class="text-sm text-gray-600">Jatuh Tempo</span>
             <span class="font-semibold text-finDeep">${dueDate}</span>
           </div>
-          
-          ${isPaid ? `
-            <div class="flex justify-between items-center p-3 bg-green-50 rounded-lg">
-              <span class="text-sm text-green-700">Tanggal Bayar</span>
-              <span class="font-semibold text-green-700">${paidDate}</span>
-            </div>
-          ` : ''}
-          
           ${isCurrent ? `
             <button class="btn-primary w-full py-3 rounded-lg font-semibold shadow-md mt-4">
               <i class="fas fa-wallet mr-2"></i>Bayar Sekarang
             </button>
           ` : ''}
-          
           ${isUpcoming ? `
             <div class="p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-xs text-yellow-700">
               <i class="fas fa-info-circle mr-1"></i>Angsuran ini akan tersedia setelah angsuran sebelumnya lunas.
@@ -686,7 +654,7 @@ const App = {
       tr.innerHTML = `
         <td class="px-4 py-3 font-mono text-xs text-gray-600">${tx.id}</td>
         <td class="px-4 py-3 text-sm">${tx.date}</td>
-        <td class="px-4 py-3 font-medium text-finDeep">${new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(tx.amount)}</td>
+        <td class="px-4 py-3 font-medium text-finDeep">${this.formatRupiah(tx.amount)}</td>
         <td class="px-4 py-3 text-sm text-gray-600">${tx.method}</td>
         <td class="px-4 py-3"><span class="status-badge status-${tx.status.toLowerCase()}">${tx.status}</span></td>
       `;
@@ -735,13 +703,13 @@ const App = {
   renderEWSTimeline() {
     const timeline = document.getElementById('ews-timeline');
     const stages = [
-      { label: 'H-14 Sebelum Jatuh Tempo', desc: 'Pengingat awal: cicilan akan jatuh tempo dalam 2 minggu.', status: 'done', date: '11 Juni 2026' },
-      { label: 'H-7 Sebelum Jatuh Tempo', desc: 'Pengingat mingguan: pastikan saldo AstraPay mencukupi.', status: 'done', date: '18 Juni 2026' },
-      { label: 'H-3 Sebelum Jatuh Tempo', desc: 'Perhatian: cicilan akan jatuh tempo dalam 3 hari.', status: 'done', date: '22 Juni 2026' },
-      { label: 'H-1 Sebelum Jatuh Tempo', desc: 'Besok adalah hari jatuh tempo. Segera lakukan pembayaran.', status: 'active', date: '24 Juni 2026' },
-      { label: 'Hari H - Jatuh Tempo', desc: 'Hari ini adalah tanggal jatuh tempo cicilan Anda.', status: '', date: '25 Juni 2026' },
-      { label: 'H+1 - Pengingat Denda', desc: 'Jika belum bayar, denda Rp 50.000 akan dikenakan.', status: '', date: '26 Juni 2026' },
-      { label: 'H+3 - Peringatan Terakhir', desc: 'Denda Rp 150.000. Risiko penurunan skor kredit.', status: 'danger', date: '28 Juni 2026' }
+      { label: 'H-14 Sebelum Jatuh Tempo', desc: 'Pengingat awal.', status: 'done', date: '11 Juni 2026' },
+      { label: 'H-7 Sebelum Jatuh Tempo', desc: 'Pengingat mingguan.', status: 'done', date: '18 Juni 2026' },
+      { label: 'H-3 Sebelum Jatuh Tempo', desc: 'Perhatian.', status: 'done', date: '22 Juni 2026' },
+      { label: 'H-1 Sebelum Jatuh Tempo', desc: 'Besok jatuh tempo.', status: 'active', date: '24 Juni 2026' },
+      { label: 'Hari H - Jatuh Tempo', desc: 'Hari ini jatuh tempo.', status: '', date: '25 Juni 2026' },
+      { label: 'H+1 - Pengingat Denda', desc: 'Denda Rp 50.000.', status: '', date: '26 Juni 2026' },
+      { label: 'H+3 - Peringatan Terakhir', desc: 'Denda Rp 150.000.', status: 'danger', date: '28 Juni 2026' }
     ];
 
     timeline.innerHTML = '';
@@ -768,8 +736,7 @@ const App = {
     const dropdown = document.getElementById('notif-dropdown');
     const notifs = [
       { icon: 'bell', color: 'finOrange', msg: 'H-1: Cicilan jatuh tempo besok' },
-      { icon: 'check-circle', color: 'green-500', msg: 'Pembayaran H-14 berhasil dikirim' },
-      { icon: 'check-circle', color: 'green-500', msg: 'Pembayaran H-7 berhasil dikirim' },
+      { icon: 'check-circle', color: 'green-500', msg: 'Pembayaran H-14 berhasil' },
       { icon: 'wallet', color: 'finOrange', msg: 'AstraPay Auto-Debit aktif' }
     ];
     dropdown.innerHTML = notifs.map(n => `
@@ -803,35 +770,33 @@ const App = {
   },
 
   getAvatarUrl(user) {
-  const name = user.name || user.phone || 'User';
-  const initials = this._getInitials(name);
-  
-  // Warna berdasarkan hash nama
-  const colors = [
-    { bg: '#FF7B00', text: '#FFFFFF' },
-    { bg: '#FF9644', text: '#FFFFFF' },
-    { bg: '#800000', text: '#FFFFFF' },
-    { bg: '#FFCE99', text: '#562F00' }
-  ];
-  
-  const hash = this._hashCode(name.toLowerCase());
-  const color = colors[Math.abs(hash) % colors.length];
-  const fontSize = initials.length === 1 ? '45' : '35';
-  
-  // SVG simple tanpa gradient (lebih reliable)
-  const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">
+    const name = user.name || user.phone || 'User';
+    const initials = this._getInitials(name);
+    
+    const colors = [
+      { bg: '#FF7B00', text: '#FFFFFF' },
+      { bg: '#FF9644', text: '#FFFFFF' },
+      { bg: '#800000', text: '#FFFFFF' },
+      { bg: '#FFCE99', text: '#562F00' },
+      { bg: '#E67E22', text: '#FFFFFF' },
+      { bg: '#D35400', text: '#FFFFFF' }
+    ];
+    
+    const hash = this._hashCode(name.toLowerCase());
+    const color = colors[Math.abs(hash) % colors.length];
+    const fontSize = initials.length === 1 ? '45' : '35';
+    
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">
       <rect width="100" height="100" fill="${color.bg}" rx="50"/>
       <text x="50" y="50" font-family="Arial, sans-serif" font-weight="bold" 
             font-size="${fontSize}" fill="${color.text}" 
             text-anchor="middle" dominant-baseline="central">
         ${initials}
       </text>
-    </svg>
-  `;
-  
-  return `data:image/svg+xml;base64,${btoa(svg)}`;
-},
+    </svg>`;
+    
+    return `data:image/svg+xml;base64,${btoa(svg)}`;
+  },
 
   _getInitials(name) {
     if (!name) return 'U';
@@ -839,8 +804,10 @@ const App = {
     let initials = '';
     if (words.length >= 2) {
       initials = words[0].charAt(0).toUpperCase() + words[1].charAt(0).toUpperCase();
-    } else {
+    } else if (words[0].length > 0) {
       initials = words[0].charAt(0).toUpperCase();
+    } else {
+      initials = 'U';
     }
     return initials;
   },
@@ -852,18 +819,6 @@ const App = {
       hash |= 0;
     }
     return hash;
-  },
-
-  _lightenColor(color, percent) {
-    const num = parseInt(color.replace('#', ''), 16);
-    const amt = Math.round(2.55 * percent);
-    const R = (num >> 16) + amt;
-    const G = (num >> 8 & 0x00FF) + amt;
-    const B = (num & 0x0000FF) + amt;
-    return '#' + (0x1000000 + (R < 255 ? R < 1 ? 0 : R : 255) * 0x10000 +
-      (G < 255 ? G < 1 ? 0 : G : 255) * 0x100 +
-      (B < 255 ? B < 1 ? 0 : B : 255))
-      .toString(16).slice(1);
   },
 
   formatJoinDate(isoString) {
@@ -918,7 +873,7 @@ const AIEngine = {
       { label: '36 Bulan', value: 36, interest: 0.90 }
     ];
 
-    const fmt = (n) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
+    const fmt = (n) => App.formatRupiah(n);
 
     resultsContainer.innerHTML = `
       <div class="card-skeu p-5 rounded-2xl reveal active">
@@ -962,7 +917,7 @@ const AIEngine = {
                   </div>
                   <div class="text-right">
                     <p class="font-bold text-sm ${feasible ? 'text-green-700' : 'text-gray-500'}">${fmt(monthly)}/bln</p>
-                    <p class="text-[10px] ${feasible ? '✓ Direkomendasikan' : '✗ Melebihi kemampuan'}</p>
+                    <p class="text-[10px] ${feasible ? 'text-green-600' : 'text-red-500'}">${feasible ? '✓ Direkomendasikan' : '✗ Melebihi kemampuan'}</p>
                   </div>
                 </div>
               </div>
@@ -973,18 +928,18 @@ const AIEngine = {
 
       <div class="card-skeu p-5 rounded-2xl reveal active">
         <h4 class="font-semibold text-finDeep mb-3">Kategori Risiko</h4>
-        ${this.renderRiskCards(dti, adjustedLimit)}
+        ${this.renderRiskCards(dti)}
       </div>
     `;
 
-    App.toast('Analisis AI selesai. Lihat rekomendasi di panel kanan.');
+    App.toast('Analisis AI selesai.');
   },
 
-  renderRiskCards(dti, limit) {
+  renderRiskCards(dti) {
     const cards = [
-      { label: 'Sangat Aman', desc: 'DTI < 25%. Limit maksimal dengan bunga preferensial.', color: 'green', active: dti < 0.25 },
-      { label: 'Aman', desc: 'DTI 25-50%. Pengajuan moderat dengan tenor fleksibel.', color: 'yellow', active: dti >= 0.25 && dti < 0.5 },
-      { label: 'Berisiko', desc: 'DTI > 50%. Disarankan tenor pendek atau penjamin.', color: 'red', active: dti >= 0.5 }
+      { label: 'Sangat Aman', desc: 'DTI < 25%. Limit maksimal.', color: 'green', active: dti < 0.25 },
+      { label: 'Aman', desc: 'DTI 25-50%. Moderat.', color: 'yellow', active: dti >= 0.25 && dti < 0.5 },
+      { label: 'Berisiko', desc: 'DTI > 50%. Tenor pendek.', color: 'red', active: dti >= 0.5 }
     ];
     return cards.map(c => `
       <div class="p-3 rounded-lg border-2 ${c.active ? (c.color === 'red' ? 'border-red-300 bg-red-50' : c.color === 'yellow' ? 'border-yellow-300 bg-yellow-50' : 'border-green-300 bg-green-50 ring-2 ring-offset-2 ring-finOrange') : 'border-gray-200 opacity-50'} mb-2">
@@ -1003,23 +958,23 @@ const AIEngine = {
 // ==========================================
 const Chatbot = {
   matrix: {
-    'bayar': 'Anda dapat membayar melalui Dashboard > Riwayat Transaksi, atau aktifkan AstraPay Auto-Debit untuk potongan otomatis.',
-    'bunga': 'Suku bunga FINATRA mulai 0.89%/bulan flat, tergantung profil risiko dan tenor yang dipilih.',
-    'telat': 'Denda H+1: Rp 50.000, H+3: Rp 150.000. Aktifkan auto-debit untuk menghindari denda.',
-    'limit': 'Limit ditentukan berdasarkan DTI, jenis agunan, lokasi, dan riwayat kredit (SLIK OJK).',
-    'kontak': 'Hubungi CS 24/7: 0800-123-4567 atau email support@finatra.id',
-    'ocr': 'OCR (Optical Character Recognition) memverifikasi KTP/KK/BPKB otomatis untuk mempercepat pengajuan.',
-    'astrapay': 'AstraPay Auto-Debit memotong cicilan otomatis (harian/mingguan/bulanan) dari saldo AstraPay Anda.',
-    'ews': 'AI Warning System mengirim pengingat H-14, H-7, H-3, H-1, Hari H, H+1, dan H+3 via WA/SMS/Email.',
-    'matching': 'AI Matching menganalisis pendapatan, kemampuan bayar, lokasi, dan agunan untuk rekomendasi limit ideal.',
-    'testimoni': 'Lihat testimoni nasabah di menu Testimoni. Anda juga bisa membagikan pengalaman Anda di sana.',
-    'default': 'Maaf, saya belum memahami. Coba tanya tentang: bayar, bunga, telat, limit, ocr, astrapay, ews, matching, testimoni.'
+    'bayar': 'Anda dapat membayar melalui Dashboard atau aktifkan AstraPay Auto-Debit.',
+    'bunga': 'Suku bunga FINATRA mulai 0.89%/bulan flat.',
+    'telat': 'Denda H+1: Rp 50.000, H+3: Rp 150.000.',
+    'limit': 'Limit ditentukan berdasarkan DTI, agunan, lokasi, dan SLIK OJK.',
+    'kontak': 'Hubungi CS 24/7: 0800-123-4567',
+    'ocr': 'OCR memverifikasi KTP/KK/BPKB otomatis.',
+    'astrapay': 'AstraPay Auto-Debit memotong cicilan otomatis.',
+    'ews': 'AI Warning System mengirim pengingat 7-tahap.',
+    'matching': 'AI Matching menganalisis profil risiko Anda.',
+    'testimoni': 'Lihat testimoni di menu Testimoni.',
+    'default': 'Maaf, saya belum memahami. Coba tanya: bayar, bunga, telat, limit, ocr, astrapay, ews, matching.'
   },
 
   sendMessage(text) {
     const container = document.getElementById('chat-history');
     this.appendBubble(text, 'user');
-    const typingEl = this.appendBubble('<i class="fas fa-circle-notch fa-spin"></i> Menganalisis database...', 'ai');
+    const typingEl = this.appendBubble('<i class="fas fa-circle-notch fa-spin"></i> Menganalisis...', 'ai');
     container.scrollTop = container.scrollHeight;
 
     setTimeout(() => {
@@ -1053,7 +1008,7 @@ const Chatbot = {
 };
 
 // ==========================================
-// 5. OCR SERVICE (Mock)
+// 5. OCR SERVICE
 // ==========================================
 const OCRService = {
   process(event, area) {
@@ -1076,10 +1031,10 @@ const OCRService = {
       const resultText = document.getElementById('ocr-result-text');
       if (resultEl && resultText) {
         resultEl.classList.remove('hidden');
-        resultText.textContent = `Dokumen "${file.name}" berhasil diverifikasi via OCR. Data terekstrak: Nama, NIK, Alamat.`;
+        resultText.textContent = `Dokumen "${file.name}" berhasil diverifikasi.`;
       }
       
-      App.toast('OCR berhasil memverifikasi dokumen.');
+      App.toast('OCR berhasil.');
     }, 1500);
   }
 };
@@ -1089,12 +1044,12 @@ const OCRService = {
 // ==========================================
 const TestimonialManager = {
   data: [
-    { name: 'Budi Santoso', role: 'Pemilik Warung Makan', location: 'Jakarta', rating: 5, text: 'FINATRA membantu saya mengembangkan usaha warung. Proses cepat, AI Matching sangat akurat menentukan limit yang pas.', avatar: 'budi' },
-    { name: 'Siti Rahayu', role: 'Pengusaha Konveksi', location: 'Bandung', rating: 5, text: 'AstraPay Auto-Debit sangat memudahkan. Tidak pernah telat bayar, denda nol. Recommended untuk UMKM!', avatar: 'siti' },
-    { name: 'Ahmad Wijaya', role: 'Pemilik Bengkel', location: 'Surabaya', rating: 4, text: 'EWS 7-tahap sangat membantu. Saya selalu ingat jatuh tempo. OCR juga cepat, pengajuan cuma 1 hari.', avatar: 'ahmad' },
-    { name: 'Dewi Lestari', role: 'Pemilik Toko Kelontong', location: 'Yogyakarta', rating: 5, text: 'AI Chatbot responsif 24/7. Pertanyaan apapun dijawab cepat. Customer service terbaik yang pernah saya temui.', avatar: 'dewi' },
-    { name: 'Hendra Kusuma', role: 'Distributor Sembako', location: 'Medan', rating: 5, text: 'Limit yang direkomendasikan AI sangat pas dengan kemampuan bayar saya. Tidak over-borrowing. Terima kasih FINATRA!', avatar: 'hendra' },
-    { name: 'Rina Marlina', role: 'Pemilik Catering', location: 'Semarang', rating: 5, text: 'Dashboard tracker sangat informatif. Progres pembayaran, kalender jatuh tempo, semua lengkap di satu tempat.', avatar: 'rina' }
+    { name: 'Budi Santoso', role: 'Pemilik Warung', location: 'Jakarta', rating: 5, text: 'FINATRA membantu mengembangkan usaha. Proses cepat!', avatar: 'budi' },
+    { name: 'Siti Rahayu', role: 'Pengusaha Konveksi', location: 'Bandung', rating: 5, text: 'AstraPay Auto-Debit sangat memudahkan.', avatar: 'siti' },
+    { name: 'Ahmad Wijaya', role: 'Pemilik Bengkel', location: 'Surabaya', rating: 4, text: 'EWS 7-tahap sangat membantu.', avatar: 'ahmad' },
+    { name: 'Dewi Lestari', role: 'Pemilik Toko', location: 'Yogyakarta', rating: 5, text: 'AI Chatbot responsif 24/7.', avatar: 'dewi' },
+    { name: 'Hendra Kusuma', role: 'Distributor', location: 'Medan', rating: 5, text: 'Limit yang direkomendasikan AI sangat pas.', avatar: 'hendra' },
+    { name: 'Rina Marlina', role: 'Pemilik Catering', location: 'Semarang', rating: 5, text: 'Dashboard tracker sangat informatif.', avatar: 'rina' }
   ],
 
   render() {
